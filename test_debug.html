@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test</title>
+</head>
+<body style="margin:0; background:#333; color:white; font-family:monospace; padding:20px;">
+    <h2>Minecraft Clone - Debug</h2>
+    <div id="log"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        function addLog(msg) {
+            log.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+        
+        addLog('Starting...');
+        
+        window.onerror = function(msg, url, line) {
+            addLog('ERROR: ' + msg + ' (line ' + line + ')');
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>addLog('Three.js loaded: ' + (typeof THREE !== 'undefined'));</script>
+    <script src="js/noise.js"></script>
+    <script>addLog('Noise loaded: ' + (typeof PerlinNoise !== 'undefined'));</script>
+    <script src="js/world.js"></script>
+    <script>addLog('World loaded: ' + (typeof World !== 'undefined'));</script>
+    <script src="js/player.js"></script>
+    <script>addLog('Player loaded: ' + (typeof Player !== 'undefined'));</script>
+    <script src="js/playermodel.js"></script>
+    <script>addLog('PlayerModel loaded: ' + (typeof PlayerModel !== 'undefined'));</script>
+    <script src="js/gamepad.js"></script>
+    <script>addLog('Gamepad loaded: ' + (typeof GamepadHandler !== 'undefined'));</script>
+    <script src="js/inventory.js"></script>
+    <script>addLog('Inventory loaded: ' + (typeof Inventory !== 'undefined'));</script>
+    <script src="js/enemies.js"></script>
+    <script>addLog('Enemies loaded: ' + (typeof EnemyManager !== 'undefined'));</script>
+    <script src="js/daynight.js"></script>
+    <script>addLog('DayNight loaded: ' + (typeof DayNightCycle !== 'undefined'));</script>
+    <script src="js/ui.js"></script>
+    <script>addLog('UI loaded: ' + (typeof UIManager !== 'undefined'));</script>
+    <script src="js/main.js"></script>
+    <script>addLog('Main loaded - Game class: ' + (typeof Game !== 'undefined'));</script>
+    
+    <script>
+        addLog('All scripts loaded successfully!');
+        try {
+            const game = new Game();
+            addLog('Game object created');
+        } catch(e) {
+            addLog('GAME ERROR: ' + e.message);
+        }
+    </script>
+</body>
+</html>
