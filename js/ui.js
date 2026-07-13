@@ -29,7 +29,20 @@ class UIManager {
             if (item) {
                 const icon = document.createElement('div');
                 icon.className = 'block-icon';
-                icon.style.backgroundColor = '#' + BLOCK_COLORS[item.type].toString(16).padStart(6, '0');
+                // Get color based on item type
+                let color = 0x888888;
+                if (item.itemType === 'block' && BLOCK_COLORS[item.type]) {
+                    color = BLOCK_COLORS[item.type];
+                } else if (item.itemType === 'asset') {
+                    const assetColors = {
+                        'torch': 0xff6600, 'window': 0x88ccff, 'door': 0x8b5a2b,
+                        'crafting_table': 0xbc9458, 'chest': 0x8b5a2b, 'bed': 0xcc3333,
+                        'chair': 0x8b5a2b, 'table': 0x8b5a2b, 'bookshelf': 0x6b4423,
+                        'fence': 0x8b7355, 'lamp': 0xffeecc, 'flower_pot': 0xff6688
+                    };
+                    color = assetColors[item.type] || 0x888888;
+                }
+                icon.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
                 slot.appendChild(icon);
                 
                 if (item.count > 1) {
@@ -65,7 +78,20 @@ class UIManager {
             if (item) {
                 const icon = document.createElement('div');
                 icon.className = 'block-icon';
-                icon.style.backgroundColor = '#' + BLOCK_COLORS[item.type].toString(16).padStart(6, '0');
+                // Get color based on item type
+                let color = 0x888888;
+                if (item.itemType === 'block' && BLOCK_COLORS[item.type]) {
+                    color = BLOCK_COLORS[item.type];
+                } else if (item.itemType === 'asset') {
+                    const assetColors = {
+                        'torch': 0xff6600, 'window': 0x88ccff, 'door': 0x8b5a2b,
+                        'crafting_table': 0xbc9458, 'chest': 0x8b5a2b, 'bed': 0xcc3333,
+                        'chair': 0x8b5a2b, 'table': 0x8b5a2b, 'bookshelf': 0x6b4423,
+                        'fence': 0x8b7355, 'lamp': 0xffeecc, 'flower_pot': 0xff6688
+                    };
+                    color = assetColors[item.type] || 0x888888;
+                }
+                icon.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
                 slot.appendChild(icon);
                 
                 if (item.count > 1) {
@@ -130,7 +156,20 @@ class UIManager {
             if (item) {
                 const icon = document.createElement('div');
                 icon.className = 'block-icon';
-                icon.style.backgroundColor = '#' + BLOCK_COLORS[item.type].toString(16).padStart(6, '0');
+                // Get color based on item type
+                let color = 0x888888;
+                if (item.itemType === 'block' && BLOCK_COLORS[item.type]) {
+                    color = BLOCK_COLORS[item.type];
+                } else if (item.itemType === 'asset') {
+                    const assetColors = {
+                        'torch': 0xff6600, 'window': 0x88ccff, 'door': 0x8b5a2b,
+                        'crafting_table': 0xbc9458, 'chest': 0x8b5a2b, 'bed': 0xcc3333,
+                        'chair': 0x8b5a2b, 'table': 0x8b5a2b, 'bookshelf': 0x6b4423,
+                        'fence': 0x8b7355, 'lamp': 0xffeecc, 'flower_pot': 0xff6688
+                    };
+                    color = assetColors[item.type] || 0x888888;
+                }
+                icon.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
                 icon.style.width = '30px';
                 icon.style.height = '30px';
                 slot.appendChild(icon);

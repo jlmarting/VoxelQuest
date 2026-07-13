@@ -1,18 +1,21 @@
-# Minecraft Clone - Split Screen Edition
+# VoxelQuest
 
-Un clon sencillo de Minecraft con soporte para pantalla partida (2 jugadores locales).
+Un juego de construcción y exploración de mundos voxel con soporte para pantalla partida.
 
 ## Características
 
 - **Mundo voxel** con generación procedural de terreno
-- **Pantalla partida** para 2 jugadores
+- **Pantalla partida** para 2 jugadores locales
+- **Modo solitario** y **coop**
+- **Personalización de personajes** con preview 3D
 - **Ciclo día/noche** con iluminación dinámica
 - **Sistema de bloques** con diferentes tipos
-- **Inventario** con slots y selección de bloques
-- **Crafteo básico** (madera → tablones)
-- **Enemigos** con IA básica (zombies, esqueletos, creepers)
-- **Física** con gravedad y colisiones
-- **Modo vuelo** para exploración
+- **Assets de construcción**: ventanas, puertas, muebles, antorchas
+- **Inventario completo** con drag & drop y crafteo
+- **Enemigos** con IA (zombies, esqueletos, creepers)
+- **Física** con derrumbe de bloques
+- **Modo vuelo** (doble salto)
+- **Soporte gamepad** Xbox 360
 
 ## Controles
 

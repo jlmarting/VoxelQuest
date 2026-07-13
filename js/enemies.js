@@ -63,6 +63,11 @@ class Enemy {
         this.mesh.receiveShadow = true;
         this.mesh.position.copy(this.position);
         this.mesh.position.y += this.config.height / 2;
+
+        // Eerie glow light
+        this.light = new THREE.PointLight(0x44ff44, 0.5, 8, 2);
+        this.light.position.set(0, 0, 0);
+        this.mesh.add(this.light);
     }
 
     update(deltaTime, players) {

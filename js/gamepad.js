@@ -151,6 +151,18 @@ class GamepadHandler {
             rb: this.justPressed(gamepadIndex, 'rb')
         };
     }
+
+    // Get inventory navigation input
+    getInventoryNav(gamepadIndex) {
+        return {
+            up: this.justPressed(gamepadIndex, 'dpUp'),
+            down: this.justPressed(gamepadIndex, 'dpDown'),
+            left: this.justPressed(gamepadIndex, 'dpLeft'),
+            right: this.justPressed(gamepadIndex, 'dpRight'),
+            select: this.justPressed(gamepadIndex, 'a'),
+            close: this.justPressed(gamepadIndex, 'b') || this.justPressed(gamepadIndex, 'start')
+        };
+    }
 }
 
 window.GamepadHandler = GamepadHandler;

@@ -1,10 +1,12 @@
 class Player {
-    constructor(id, world, camera, gamepadHandler, physics) {
+    constructor(id, world, camera, gamepadHandler, physics, sound) {
         this.id = id;
         this.world = world;
         this.camera = camera;
         this.gamepadHandler = gamepadHandler;
         this.physics = physics;
+        this.sound = sound;
+        this.buildingAssets = null; // Set by Game
         this.gamepadIndex = id - 1; // Gamepad 0 = Player 1, Gamepad 1 = Player 2
 
         // Position and physics
@@ -18,6 +20,10 @@ class Player {
         this.onGround = false;
         this.isFlying = false;
         this.isMoving = false;
+
+        // Double jump for flying toggle
+        this.lastJumpTime = 0;
+        this.doubleJumpWindow = 300; // ms
 
         // Movement settings
         this.moveSpeed = 5;
@@ -39,6 +45,12 @@ class Player {
         // Inventory
         this.inventory = new Inventory(this);
         this.selectedSlot = 0;
+
+        // Camera mode: 0=first person, 1=third close, 2=third far
+        this.cameraMode = 0;
+        this.cameraDistances = [0, 3, 8];
+        this.cameraHeights = [1.75, 0.5, 1.5];
+        this.cameraForwardOffset = 0.3; // avoid seeing own face
 
         // Setup controls
         this.setupControls();
@@ -66,6 +78,12 @@ class Player {
                     this.selectedSlot = parseInt(e.code.charAt(5));
                     if (this.selectedSlot === 0) this.selectedSlot = 9;
                 }
+            }
+
+            // V key toggles camera mode (both players)
+            if (e.code === 'KeyV') {
+                this.cameraMode = (this.cameraMode + 1) % 3;
+                console.log('[Camera] Player', this.id, 'mode:', this.cameraMode);
             }
         });
 
@@ -149,14 +167,8 @@ class Player {
         this.velocity.x = moveDir.x * this.moveSpeed;
         this.velocity.z = moveDir.z * this.moveSpeed;
 
-        // Flying and jumping - keyboard
+        // Flying and jumping - keyboard (double jump toggles flying)
         if (this.id === 1) {
-            if (this.keys['Space'] && this.keys['ShiftLeft']) {
-                this.isFlying = !this.isFlying;
-                this.keys['Space'] = false;
-                this.keys['ShiftLeft'] = false;
-            }
-
             if (this.isFlying) {
                 this.velocity.y = 0;
                 if (this.keys['Space']) this.velocity.y = this.moveSpeed;
@@ -164,17 +176,20 @@ class Player {
             } else {
                 this.velocity.y += this.gravity * deltaTime;
                 if (this.keys['Space'] && this.onGround) {
-                    this.velocity.y = this.jumpForce;
+                    const now = Date.now();
+                    if (now - this.lastJumpTime < this.doubleJumpWindow) {
+                        // Double jump - toggle flying
+                        this.isFlying = true;
+                        this.velocity.y = 0;
+                    } else {
+                        this.velocity.y = this.jumpForce;
+                    }
                     this.onGround = false;
+                    this.lastJumpTime = now;
+                    if (this.sound) this.sound.jump();
                 }
             }
         } else {
-            if (this.keys['NumpadEnter'] && this.keys['ShiftRight']) {
-                this.isFlying = !this.isFlying;
-                this.keys['NumpadEnter'] = false;
-                this.keys['ShiftRight'] = false;
-            }
-
             if (this.isFlying) {
                 this.velocity.y = 0;
                 if (this.keys['NumpadEnter']) this.velocity.y = this.moveSpeed;
@@ -182,8 +197,16 @@ class Player {
             } else {
                 this.velocity.y += this.gravity * deltaTime;
                 if (this.keys['NumpadEnter'] && this.onGround) {
-                    this.velocity.y = this.jumpForce;
+                    const now = Date.now();
+                    if (now - this.lastJumpTime < this.doubleJumpWindow) {
+                        this.isFlying = true;
+                        this.velocity.y = 0;
+                    } else {
+                        this.velocity.y = this.jumpForce;
+                    }
                     this.onGround = false;
+                    this.lastJumpTime = now;
+                    if (this.sound) this.sound.jump();
                 }
             }
         }
@@ -216,12 +239,40 @@ class Player {
         // Apply velocity with collision
         this.moveWithCollision(deltaTime);
 
-        // Update camera
-        this.camera.position.copy(this.position);
-        this.camera.position.y += 1.6;
+        // Update camera based on mode
+        const dist = this.cameraDistances[this.cameraMode];
+        const height = this.cameraHeights[this.cameraMode];
 
-        const euler = new THREE.Euler(this.rotation.x, this.rotation.y, 0, 'YXZ');
-        this.camera.quaternion.setFromEuler(euler);
+        if (dist === 0) {
+            // First person - offset forward to avoid seeing own face
+            const forwardX = -Math.sin(this.rotation.y) * this.cameraForwardOffset;
+            const forwardZ = -Math.cos(this.rotation.y) * this.cameraForwardOffset;
+            this.camera.position.set(
+                this.position.x + forwardX,
+                this.position.y + height,
+                this.position.z + forwardZ
+            );
+        } else {
+            // Third person - camera behind player
+            const euler = new THREE.Euler(0, this.rotation.y, 0, 'YXZ');
+            const offset = new THREE.Vector3(0, height, dist);
+            offset.applyEuler(euler);
+            this.camera.position.set(
+                this.position.x + offset.x,
+                this.position.y + offset.y,
+                this.position.z + offset.z
+            );
+        }
+
+        // Camera looks at player (third person) or forward (first person)
+        const camEuler = new THREE.Euler(this.rotation.x, this.rotation.y, 0, 'YXZ');
+        if (dist > 0) {
+            // Third person: look at player
+            this.camera.lookAt(this.position.x, this.position.y + 1.0, this.position.z);
+        } else {
+            // First person: look forward
+            this.camera.quaternion.setFromEuler(camEuler);
+        }
 
         // Gamepad block actions
         if (this.gamepadHandler && this.gamepadHandler.isConnected(this.gamepadIndex)) {
@@ -264,6 +315,9 @@ class Player {
         if (this.checkCollision(newPos)) {
             if (this.velocity.y < 0) {
                 this.onGround = true;
+                if (this.isFlying) {
+                    this.isFlying = false; // Land when hitting ground
+                }
             }
             newPos.y = this.position.y;
             this.velocity.y = 0;
@@ -312,9 +366,13 @@ class Player {
         const dir = this.getForwardDirection();
         const hit = this.world.raycast(eyePos, dir);
 
+        console.log('[Place] Hit:', !!hit, 'Selected slot:', this.inventory.getSelectedSlot());
+
         if (hit) {
-            const blockType = this.inventory.getSelectedBlock();
-            if (blockType && this.inventory.hasBlock(blockType)) {
+            const selectedItem = this.inventory.slots[this.inventory.getSelectedSlot()];
+            console.log('[Place] Selected item:', selectedItem);
+
+            if (selectedItem && selectedItem.count > 0) {
                 const px = hit.position.x + hit.normal.x;
                 const py = hit.position.y + hit.normal.y;
                 const pz = hit.position.z + hit.normal.z;
@@ -326,8 +384,65 @@ class Player {
                 if (px === playerBlockX && py === playerBlockY && pz === playerBlockZ) return;
                 if (px === playerBlockX && py === playerBlockY + 1 && pz === playerBlockZ) return;
 
-                this.world.setBlock(px, py, pz, blockType);
-                this.inventory.removeBlock(blockType, 1);
+                // Determine if block or asset (blocks are numbers, assets are strings)
+                const isBlock = typeof selectedItem.type === 'number';
+                console.log('[Place] Type:', selectedItem.type, 'isBlock:', isBlock);
+
+                if (isBlock) {
+                    this.world.setBlock(px, py, pz, selectedItem.type);
+                    console.log('[Place] Block placed at', px, py, pz);
+                } else {
+                    this.placeAsset(selectedItem.type, px, py, pz);
+                }
+
+                this.inventory.removeItem(selectedItem.type, 1);
+                if (this.sound) this.sound.blockPlace();
+            }
+        }
+    }
+
+    placeAsset(assetType, x, y, z) {
+        // Get rotation based on player facing
+        const rotation = Math.round(this.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
+
+        if (this.buildingAssets) {
+            switch (assetType) {
+                case 'window':
+                    this.buildingAssets.createWindow(x, y, z, rotation);
+                    break;
+                case 'door':
+                    this.buildingAssets.createDoor(x, y, z, rotation);
+                    break;
+                case 'torch':
+                    this.buildingAssets.createTorch(x, y, z);
+                    break;
+                case 'crafting_table':
+                    this.buildingAssets.createCraftingTable(x, y, z);
+                    break;
+                case 'chest':
+                    this.buildingAssets.createChest(x, y, z);
+                    break;
+                case 'bed':
+                    this.buildingAssets.createBed(x, y, z);
+                    break;
+                case 'chair':
+                    this.buildingAssets.createChair(x, y, z);
+                    break;
+                case 'table':
+                    this.buildingAssets.createTable(x, y, z);
+                    break;
+                case 'bookshelf':
+                    this.buildingAssets.createBookshelf(x, y, z);
+                    break;
+                case 'fence':
+                    this.buildingAssets.createFence(x, y, z, 1, rotation);
+                    break;
+                case 'lamp':
+                    this.buildingAssets.createLamp(x, y, z);
+                    break;
+                case 'flower_pot':
+                    this.buildingAssets.createFlowerPot(x, y, z);
+                    break;
             }
         }
     }
@@ -340,7 +455,8 @@ class Player {
         if (hit && hit.block !== BLOCK_TYPES.BEDROCK) {
             const brokenBlock = hit.block;
             this.world.setBlock(hit.position.x, hit.position.y, hit.position.z, BLOCK_TYPES.AIR);
-            this.inventory.addBlock(brokenBlock, 1);
+            this.inventory.addItem(brokenBlock, 1);
+            if (this.sound) this.sound.blockBreak();
 
             // Trigger physics collapse check
             if (this.physics) {

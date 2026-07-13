@@ -15,6 +15,14 @@ class Game {
         this.camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
         this.camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / (2 * window.innerHeight), 0.1, 1000);
 
+        // Camera layers: 0=world, 1=P1 model, 2=P2 model
+        // Camera 1 sees: world + P2 model (+ P1 model in third person)
+        // Camera 2 sees: world + P1 model (+ P2 model in third person)
+        this.camera1.layers.enable(0); // world
+        this.camera1.layers.enable(2); // P2 model
+        this.camera2.layers.enable(0); // world
+        this.camera2.layers.enable(1); // P1 model
+
         // Gamepad handler
         this.gamepadHandler = new GamepadHandler();
 
@@ -24,19 +32,36 @@ class Game {
         // Physics system for block collapse
         this.physics = new PhysicsSystem(this.world, this.scene);
 
+        // Sound manager
+        this.sound = new SoundManager();
+
         // Players
-        this.player1 = new Player(1, this.world, this.camera1, this.gamepadHandler, this.physics);
-        this.player2 = new Player(2, this.world, this.camera2, this.gamepadHandler, this.physics);
+        this.player1 = new Player(1, this.world, this.camera1, this.gamepadHandler, this.physics, this.sound);
+        this.player2 = new Player(2, this.world, this.camera2, this.gamepadHandler, this.physics, this.sound);
+
+        // Assign building assets to players
+        this.player1.buildingAssets = this.buildingAssets;
+        this.player2.buildingAssets = this.buildingAssets;
 
         // Player models (visible characters)
         this.playerModel1 = new PlayerModel(1, this.scene);
         this.playerModel2 = new PlayerModel(2, this.scene);
+
+        // Assign layers: P1 model on layer 1, P2 model on layer 2
+        this.playerModel1.group.layers.set(1);
+        this.playerModel2.group.layers.set(2);
+
+        // Player customization configs
+        this.playerConfigs = null;
 
         // Day/Night cycle
         this.dayNight = new DayNightCycle(this.scene);
 
         // Enemy manager
         this.enemyManager = new EnemyManager(this.world);
+
+        // Building assets
+        this.buildingAssets = new BuildingAssets(this.scene);
 
         // UI
         this.ui = new UIManager();
@@ -51,12 +76,38 @@ class Game {
         this.blockHighlight = this.createBlockHighlight();
         this.scene.add(this.blockHighlight);
 
+        // 3D Crosshair
+        this.crosshair = this.createCrosshair();
+
         // Check menu overlay
         const menuOverlay = document.getElementById('menu-overlay');
         console.log('Menu overlay found:', !!menuOverlay);
 
         this.setupEventListeners();
         this.setupMenu();
+    }
+
+    createCrosshair() {
+        const group = new THREE.Group();
+        const mat = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+        // Horizontal line
+        const hGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-0.02, 0, 0),
+            new THREE.Vector3(0.02, 0, 0)
+        ]);
+        group.add(new THREE.Line(hGeo, mat));
+
+        // Vertical line
+        const vGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, -0.02, 0),
+            new THREE.Vector3(0, 0.02, 0)
+        ]);
+        group.add(new THREE.Line(vGeo, mat));
+
+        group.renderOrder = 999;
+        this.scene.add(group);
+        return group;
     }
 
     createBlockHighlight() {
@@ -76,14 +127,12 @@ class Game {
 
         soloBtn.addEventListener('click', () => {
             this.gameMode = 'solo';
-            menuOverlay.style.display = 'none';
-            this.start();
+            this.showCustomizer();
         });
 
         coopBtn.addEventListener('click', () => {
             this.gameMode = 'coop';
-            menuOverlay.style.display = 'none';
-            this.start();
+            this.showCustomizer();
         });
 
         controlsBtn.addEventListener('click', () => {
@@ -118,6 +167,17 @@ GAMEPAD (Xbox 360):
 - D-Pad: Seleccionar slot
             `);
         });
+    }
+
+    showCustomizer() {
+        const menuOverlay = document.getElementById('menu-overlay');
+        menuOverlay.style.display = 'none';
+
+        const customizer = new CharacterCustomizer((configs) => {
+            this.playerConfigs = configs;
+            this.start();
+        });
+        customizer.show();
     }
 
     setupEventListeners() {
@@ -190,22 +250,70 @@ GAMEPAD (Xbox 360):
 
             if (!this.running) return;
 
+            // Inventory toggle
             if (e.code === 'KeyE') {
-                this.ui.toggleInventory(1);
+                if (this.inventoryUI) this.inventoryUI.toggle();
             }
 
             if (e.code === 'KeyP' && this.gameMode === 'coop') {
-                this.ui.toggleInventory(2);
+                if (this.inventoryUI) this.inventoryUI.toggle();
+            }
+
+            // Inventory navigation when open
+            if (this.inventoryUI && this.inventoryUI.isOpen) {
+                if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+                    this.inventoryUI.moveSelection(-9); // Up one row
+                } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                    this.inventoryUI.moveSelection(9); // Down one row
+                } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                    this.inventoryUI.moveSelection(-1); // Left
+                } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                    this.inventoryUI.moveSelection(1); // Right
+                } else if (e.code === 'Enter' || e.code === 'Space') {
+                    this.inventoryUI.selectCurrent();
+                } else if (e.code === 'Escape') {
+                    this.inventoryUI.close();
+                }
+            }
+
+            // X key toggles collision boxes
+            if (e.code === 'KeyX') {
+                this.playerModel1.toggleCollision();
+                if (this.gameMode === 'coop') {
+                    this.playerModel2.toggleCollision();
+                }
+            }
+
+            // M key toggles sound
+            if (e.code === 'KeyM') {
+                const enabled = this.sound.toggle();
+                this.ui.showNotification(enabled ? 'Sonido: ON' : 'Sonido: OFF');
             }
         });
     }
 
     start() {
+        console.log('[Main] start() called');
         this.running = true;
         this.menuOpen = false;
 
+        // Hide all menus
+        document.getElementById('menu-overlay').style.display = 'none';
+
+        // Initialize sound (requires user interaction)
+        this.sound.init();
+
+        // Apply customization configs if available
+        if (this.playerConfigs) {
+            console.log('[Main] Applying customization');
+            this.playerModel1.updateConfig(this.playerConfigs[0]);
+            this.playerModel2.updateConfig(this.playerConfigs[1]);
+        }
+
         // Spawn players
+        console.log('[Main] Spawning players');
         this.player1.spawn(8, 8);
+        console.log('[Main] Player 1 spawned');
 
         if (this.gameMode === 'coop') {
             this.player2.spawn(10, 8);
@@ -216,13 +324,27 @@ GAMEPAD (Xbox 360):
         }
 
         // Initialize UI
+        console.log('[Main] Initializing UI');
         this.ui.initialize(this.player1, this.player2);
+        console.log('[Main] UI initialized');
+
+        // Initialize Inventory UI
+        this.inventoryUI = new InventoryUI(this.player1.inventory);
+        window.gameUI = this;
 
         // Generate initial chunks
+        console.log('[Main] Generating chunks');
         this.world.update(this.player1.position.x, this.player1.position.z);
+        console.log('[Main] Chunks generated');
 
         // Start game loop
+        console.log('[Main] Starting animate loop');
         this.animate();
+        console.log('[Main] animate() called');
+    }
+
+    closeInventory() {
+        if (this.inventoryUI) this.inventoryUI.close();
     }
 
     updateBlockHighlight() {
@@ -246,6 +368,7 @@ GAMEPAD (Xbox 360):
     animate() {
         if (!this.running) return;
 
+        if (!this._animateLogged) { console.log('[Main] animate() running'); this._animateLogged = true; }
         requestAnimationFrame(() => this.animate());
 
         const deltaTime = Math.min(this.clock.getDelta(), 0.1);
@@ -275,10 +398,19 @@ GAMEPAD (Xbox 360):
             );
         }
 
-        // Hide own player model (can't see yourself)
-        this.playerModel1.setVisible(false);
-        if (this.gameMode === 'coop') {
-            this.playerModel2.setVisible(false);
+        // Manage model visibility using layers
+        // P1 camera sees P2 model (layer 2) always
+        // P2 camera sees P1 model (layer 1) always
+        // In third person, also see own model
+        if (this.player1.cameraMode > 0) {
+            this.camera1.layers.enable(1); // see own model
+        } else {
+            this.camera1.layers.disable(1); // don't see own model
+        }
+        if (this.gameMode === 'coop' && this.player2.cameraMode > 0) {
+            this.camera2.layers.enable(2); // see own model
+        } else if (this.gameMode === 'coop') {
+            this.camera2.layers.disable(2); // don't see own model
         }
 
         // Update world
@@ -293,6 +425,9 @@ GAMEPAD (Xbox 360):
         // Update physics (falling blocks)
         this.physics.update(deltaTime);
 
+        // Update building asset animations (torch flames, etc.)
+        this.buildingAssets.updateAnimations(this.clock.elapsedTime);
+
         // Update block highlight
         this.updateBlockHighlight();
 
@@ -306,26 +441,34 @@ GAMEPAD (Xbox 360):
         const gamepad1Status = this.gamepadHandler.isConnected(0) ? '🎮 Conectado' : '⌨️ Teclado';
         const gamepad2Status = this.gamepadHandler.isConnected(1) ? '🎮 Conectado' : '⌨️ Teclado';
 
+        const cameraModes = ['1ra Persona', '3ra Cerca', '3ra Lejos'];
+
         const debugInfo1 = `
             FPS: ${Math.round(1 / deltaTime)}
             Pos: ${this.player1.position.x.toFixed(1)}, ${this.player1.position.y.toFixed(1)}, ${this.player1.position.z.toFixed(1)}
-            Bloque: ${BLOCK_NAMES[this.player1.inventory.getSelectedBlock()] || 'Ninguno'}
+            Bloque: ${this.inventoryUI?.inventory.getItemInfo(this.player1.inventory.getSelectedItem()?.type)?.name || 'Ninguno'}
+            Cámara: ${cameraModes[this.player1.cameraMode]} (V)
             Hora: ${this.dayNight.getTimeString()}
-            ${gamepad1Status}
         `;
 
         const debugInfo2 = `
             FPS: ${Math.round(1 / deltaTime)}
             Pos: ${this.player2.position.x.toFixed(1)}, ${this.player2.position.y.toFixed(1)}, ${this.player2.position.z.toFixed(1)}
-            Bloque: ${BLOCK_NAMES[this.player2.inventory.getSelectedBlock()] || 'Ninguno'}
+            Bloque: ${this.inventoryUI?.inventory.getItemInfo(this.player2.inventory.getSelectedItem()?.type)?.name || 'Ninguno'}
+            Cámara: ${cameraModes[this.player2.cameraMode]} (V)
             Hora: ${this.dayNight.getTimeString()}
-            ${gamepad2Status}
         `;
 
         this.ui.updateDebugInfo(1, debugInfo1);
         if (this.gameMode === 'coop') {
             this.ui.updateDebugInfo(2, debugInfo2);
         }
+
+        // Update crosshair position (always in front of active camera)
+        const activeCamera = this.activePlayer === 1 ? this.camera1 : this.camera2;
+        this.crosshair.position.copy(activeCamera.position);
+        this.crosshair.quaternion.copy(activeCamera.quaternion);
+        this.crosshair.translateZ(-0.5); // 0.5 units in front of camera
 
         // Render based on game mode
         const width = window.innerWidth;
