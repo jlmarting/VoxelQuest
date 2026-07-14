@@ -1,10 +1,12 @@
 """
 Evasion + chase infinito para Jugador 2.
 - Huye de monstruos o persigue a P1 con movimiento natural (gamepad virtual).
-- Usa el modo vuelo para ascender cuando P1 esta arriba.
-- Si queda por encima de P1, apaga el vuelo y cae (recarga para rs).
+- Usa modo vuelo para ascender cuando P1 esta arriba.
+- Si queda por encima de P1, apaga el vuelo y cae.
 - Para a 2 bloques de distancia horizontal de P1.
-- Rompe paredes/techos/suelos si atascado; salta agujeros.
+- Detecta agujeros, salta, y rompe paredes/techos/suelos si atascado.
+- Si detecta >3 paredes solidas (pozo): las rompe por coordenadas directas.
+- Ultimo recurso: teletransporte cerca de P1.
 """
 
 import json, math, time, urllib.request, random, sys
@@ -77,7 +79,7 @@ def hole_ahead(p2, yaw, look_dist=2):
     return False, None, None
 
 
-# ---- conexion ----
+# conexion
 for _ in range(40):
     if not mcp("get_top_down_view", {"player_id": 2, "radius": 1}).get("error"):
         if mcp("gamepad_connect", {"player_id": 2}).get("success"):
@@ -88,7 +90,7 @@ else:
     print("sin gamepad", file=sys.stderr)
     sys.exit(1)
 
-print("evade+chase (vuelo+escalada) iniciado", file=sys.stderr)
+print("evade+chase (escape pozo) iniciado", file=sys.stderr)
 
 last, stuck, alt_heading, jump_cd, break_cd = None, 0, None, 0, 0
 fly_active = False
@@ -131,7 +133,7 @@ while True:
         moving, chasing = False, False
 
         if near and threat < 16:
-            # --- H U I R ---
+            # H U I R
             if fly_active:
                 fly_pulse = 1
                 fly_active = False
@@ -149,7 +151,7 @@ while True:
                 jump_cd = 4
             moving = True
         else:
-            # --- P E R S E G U I R   P 1 ---
+            # P E R S E G U I R
             p1 = live_pos(1)
             if p1:
                 dx = p1[0] - p2[0]
@@ -160,6 +162,7 @@ while True:
 
                 if need_move:
                     chasing = True
+                    chase_up = dy > 0.5
                     desired = math.atan2(-dx, -dz)
                     if alt_heading is not None:
                         desired = alt_heading
@@ -169,7 +172,6 @@ while True:
                     move = dir_to_move(dx, dz, yaw, mag)
                     lookx = steer(yaw, desired)
                     moving = True
-                    chase_up = dy > 0.5
 
                     # gestion de vuelo
                     if dy > 2.0 and not fly_active:
@@ -177,31 +179,29 @@ while True:
                         fly_active = True
                         print("  vuelo ON", file=sys.stderr)
                     elif dy < -2.0 and fly_active:
-                        # encima -> apagar y caer
                         fly_pulse = 1
                         fly_active = False
-                        print("  vuelo OFF (por encima)", file=sys.stderr)
+                        print("  vuelo OFF (encima)", file=sys.stderr)
                     elif abs(dy) <= 2.0 and fly_active:
-                        # rango de altura -> apagar
                         fly_pulse = 1
                         fly_active = False
                         print("  vuelo OFF (altura)", file=sys.stderr)
 
                     if fly_active:
                         if dy > 0.5:
-                            jump = True  # ascender
+                            jump = True
                         elif dy < -0.5:
-                            rs = True  # descender
+                            rs = True
             else:
                 move = {"x": 0, "z": -0.5}
 
-        # agujero -> salto + desvio
+        # agujero
         if has_hole and moving and jump_cd == 0:
             jump = True
             jump_cd = 3
             alt_heading = yaw + random.choice([-1, 1]) * (math.pi / 4)
 
-        # enviar input
+        # input
         inp = {"move": move, "look": {"x": lookx, "y": 0}}
         if jump:
             inp["jump"] = True
@@ -220,6 +220,7 @@ while True:
             stuck = stuck + 1 if dpos < 0.25 else 0
         last = p2
 
+        # acciones correctivas
         if stuck == 6 and jump_cd == 0:
             mcp("gamepad_input", {"player_id": 2, "input": {"jump": True}})
             jump_cd = 4
@@ -254,6 +255,47 @@ while True:
         if stuck >= 16:
             alt_heading = yaw + random.choice([-1, 1]) * (math.pi / 3 + 0.5)
             stuck = 0
+
+        # fallback directo: cavar paredes (por coordenada, no raycast)
+        if stuck >= 12:
+            env = mcp("get_environment", {"player_id": 2})
+            adj = env.get("adjacent", {})
+            solid_sides = sum(
+                1
+                for k in ["north", "south", "east", "west", "above", "below"]
+                if adj.get(k, -1) not in (-1, 0, 10)
+            )
+            if solid_sides >= 3 and break_cd == 0:
+                px, py, pz = int(p2[0]), int(p2[1]), int(p2[2])
+                dirs = {
+                    "north": (0, 0, -1),
+                    "south": (0, 0, 1),
+                    "east": (1, 0, 0),
+                    "west": (-1, 0, 0),
+                    "above": (0, 1, 0),
+                    "below": (0, -1, 0),
+                }
+                for k, (dx, dy, dz) in dirs.items():
+                    if adj.get(k, -1) not in (-1, 0, 10):
+                        mcp("break_block", {"x": px + dx, "y": py + dy, "z": pz + dz})
+                break_cd = 6
+                stuck = 5
+                print(f"  {solid_sides} paredes rotas", file=sys.stderr)
+            elif solid_sides >= 3 and break_cd > 2:
+                # sigue atrapado -> teleport
+                p1 = live_pos(1)
+                if p1:
+                    h = mcp("get_height", {"x": int(p1[0]), "z": int(p1[2])}).get(
+                        "height", 20
+                    )
+                    tx, tz = int(p1[0]) + 2, int(p1[2]) + 1
+                    mcp("teleport", {"player_id": 2, "x": tx, "y": h + 1, "z": tz})
+                    print(f"  teleport a ({tx},{h + 1},{tz})", file=sys.stderr)
+                    stuck = 0
+                    if fly_active:
+                        fly_pulse = 1
+                        fly_active = False
+
         if break_cd > 0:
             break_cd -= 1
 
