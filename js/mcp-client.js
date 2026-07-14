@@ -628,6 +628,23 @@ class MCPClient {
         });
 
         this.playerStates = state.players;
+
+        // Sincronizar entidades (enemigos) para el blackboard
+        if (this.game.enemyManager && this.game.enemyManager.enemies) {
+            state.entities = this.game.enemyManager.enemies.map(e => ({
+                type: 'enemy',
+                enemyType: e.type,
+                id: e.id,
+                position: { x: e.position.x, y: e.position.y, z: e.position.z },
+                distance: Math.hypot(
+                    e.position.x - (state.players[2]?.position?.x || 0),
+                    e.position.z - (state.players[2]?.position?.z || 0)
+                ),
+                health: e.health
+            }));
+        }
+
+        this.playerStates = state.players;
         return state;
     }
 

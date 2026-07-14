@@ -10,6 +10,7 @@
  * - Sistema de aprobación (auto/humano)
  * - Personalización de avatros
  * - Acciones: mover, construir, recolectar, etc.
+ * - Motor de Árboles de Comportamiento (Behavior Tree)
  * 
  * Uso:
  *   node mcp-server.js
@@ -20,6 +21,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 const webbrowser = require('child_process').webbrowser || null;
+const { BehaviorTree, NODE_STATUS, createActionCatalog } = require('./bt-engine.js');
 
 // Estado global del juego
 let gameState = {
@@ -43,6 +45,68 @@ let nextPlayerId = 3; // 1 y 2 son locales
 
 // WebSocket clients conectados
 let gameClients = [];
+
+// ---- Behavior Tree Engine ----
+let btEngine = null;
+let btInterval = null;
+
+const btBlackboard = {
+    self_vida: 20,
+    self_x: 0,
+    self_z: 0,
+    target_enemigo_id: null,
+    target_enemigo_x: 0,
+    target_enemigo_z: 0,
+    hay_enemigos_cerca: false
+};
+
+function btRelay(method, params) {
+    sendToGame({ id: 'bt_' + Date.now(), method, params });
+}
+
+function updateBtBlackboard() {
+    const p2 = gameState.players[2];
+    if (p2) {
+        btBlackboard.self_vida = p2.health;
+        btBlackboard.self_x = p2.position.x;
+        btBlackboard.self_z = p2.position.z;
+    }
+}
+
+function startBtTick() {
+    if (btInterval) return;
+    console.log('[BT] Iniciando tick loop (10Hz)');
+    btInterval = setInterval(() => {
+        if (!btEngine) return;
+        updateBtBlackboard();
+        const result = btEngine.tick();
+        if (result === NODE_STATUS.FAILURE) {
+            // All selectors failed -> auto idle
+            btEngine.runningAction = null;
+        }
+        if (result === NODE_STATUS.FAILURE && btEngine.lastResult !== result) {
+            console.log('[BT] Falling back to idle');
+            btRelay('gamepad_input', { player_id: 2, input: { move: { x: 0, z: 0 }, look: { x: 0, y: 0 } } });
+        }
+    }, 100);
+}
+
+function stopBtTick() {
+    if (btInterval) {
+        clearInterval(btInterval);
+        btInterval = null;
+        console.log('[BT] Tick loop detenido');
+    }
+}
+
+function loadBehaviorTree(json) {
+    const catalog = createActionCatalog(btRelay);
+    const tree = new BehaviorTree(json, catalog, btRelay, btBlackboard);
+    if (tree.error) return { error: tree.error };
+    btEngine = tree;
+    startBtTick();
+    return { success: true, message: 'Behavior tree loaded' };
+}
 
 // Enviar comando al juego via WebSocket
 function sendToGame(data) {
@@ -646,6 +710,32 @@ const mcpHandlers = {
         const player = gameState.players[params.player_id];
         if (!player) return { error: 'Jugador no encontrado' };
         return relayToGame('navigate_to', { player_id: params.player_id, x: params.x, z: params.z }, 30000);
+    },
+
+    // ---- BEHAVIOR TREE ----
+
+    // Cargar árbol de comportamiento
+    bt_load: async (params) => {
+        if (!params.tree) return { error: 'tree JSON required' };
+        const result = loadBehaviorTree(params.tree);
+        return result;
+    },
+
+    // Estado del motor BT
+    bt_status: async () => {
+        return {
+            running: btInterval !== null,
+            treeLoaded: btEngine !== null,
+            lastResult: btEngine ? btEngine.lastResult : null,
+            blackboard: btBlackboard
+        };
+    },
+
+    // Detener motor BT
+    bt_stop: async () => {
+        stopBtTick();
+        btEngine = null;
+        return { success: true, message: 'Behavior tree engine stopped' };
     }
 };
 
@@ -813,6 +903,18 @@ wss.on('connection', (ws) => {
                         if (p.isFlying !== undefined) gameState.players[id].isFlying = p.isFlying;
                     }
                 });
+
+                // Actualizar blackboard con datos de entidades si están disponibles
+                if (data.state.entities) {
+                    const enemies = data.state.entities.filter(e => e.type === 'enemy');
+                    const nearest = enemies.sort((a, b) => a.distance - b.distance)[0];
+                    btBlackboard.hay_enemigos_cerca = enemies.length > 0;
+                    if (nearest) {
+                        btBlackboard.target_enemigo_id = nearest.id || nearest.enemyType;
+                        btBlackboard.target_enemigo_x = nearest.position ? nearest.position.x : nearest.x;
+                        btBlackboard.target_enemigo_z = nearest.position ? nearest.position.z : nearest.z;
+                    }
+                }
             }
         } catch (e) {
             // Silently ignore parse errors from game
