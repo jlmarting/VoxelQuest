@@ -13,6 +13,7 @@ release boundary).
 - Add virtual gamepad relay and autonomous chase/evade scripts
 
 ### Changed
+- add CHANGELOG.md and update with recent commits
 - Enhance evade_chase with direct wall breaking and teleport escape
 ## [48337cd] — 2026-07-14
 
