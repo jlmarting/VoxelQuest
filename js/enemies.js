@@ -243,8 +243,6 @@ class Enemy {
     }
 }
 
-EnemyManager.nextEnemyId = 1;
-
 class EnemyManager {
     constructor(world) {
         this.world = world;
@@ -342,6 +340,8 @@ class EnemyManager {
         return false;
     }
 }
+
+EnemyManager.nextEnemyId = 1;
 
 window.ENEMY_TYPES = ENEMY_TYPES;
 window.Enemy = Enemy;
