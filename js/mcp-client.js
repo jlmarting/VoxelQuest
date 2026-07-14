@@ -596,6 +596,7 @@ class MCPClient {
     sendHeartbeat() {
         if (!this.connected || !this.game.running) return;
         const p2 = this.game.player2;
+        const p1 = this.game.player1;
         if (!p2) return;
         const data = {
             type: 'bt_heartbeat',
@@ -603,7 +604,8 @@ class MCPClient {
             health: p2.health,
             position: { x: p2.position.x, y: p2.position.y, z: p2.position.z },
             rotation: { x: p2.rotation.x, y: p2.rotation.y },
-            isFlying: p2.isFlying
+            isFlying: p2.isFlying,
+            p1_position: p1 ? { x: p1.position.x, y: p1.position.y, z: p1.position.z } : null
         };
         if (this.game.enemyManager && this.game.enemyManager.enemies) {
             const enemies = this.game.enemyManager.enemies.map(e => ({

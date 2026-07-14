@@ -182,7 +182,38 @@ function validateTreeSchema(json) {
 
 // Action catalog builder
 function createActionCatalog() {
+  let lastTarget = null;
+
   return {
+    seguir_a_p1: (params, relay, bb) => {
+      const p1x = bb.p1_x;
+      const p1z = bb.p1_z;
+      const selfX = bb.self_x;
+      const selfZ = bb.self_z;
+      if (p1x === undefined || p1z === undefined) return NODE_STATUS.FAILURE;
+
+      const dx = selfX - p1x;
+      const dz = selfZ - p1z;
+      const dist = Math.hypot(dx, dz);
+      const desiredDist = params.distancia || 2;
+
+      if (dist <= desiredDist + 0.5) {
+        lastTarget = null;
+        return NODE_STATUS.SUCCESS;
+      }
+
+      const dirX = dx / dist;
+      const dirZ = dz / dist;
+      const targetX = Math.round(p1x + dirX * desiredDist);
+      const targetZ = Math.round(p1z + dirZ * desiredDist);
+
+      const targetKey = targetX + ',' + targetZ;
+      if (lastTarget === targetKey) return NODE_STATUS.RUNNING;
+
+      lastTarget = targetKey;
+      relay('navigate_to', { player_id: 2, x: targetX, z: targetZ });
+      return NODE_STATUS.RUNNING;
+    },
     moverse_a: (params, relay) => {
       relay('navigate_to', { player_id: 2, x: params.x, z: params.z });
       return NODE_STATUS.RUNNING;
