@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxelQuest</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="split-screen">
+            <div id="viewport-p1" class="viewport">
+                <div class="hud" id="hud-p1">
+                    <div class="health-bar" id="health-p1">❤️ 20</div>
+                    <div class="hotbar" id="hotbar-p1"></div>
+                    <div class="debug-info" id="debug-p1"></div>
+                </div>
+            </div>
+            <div id="viewport-p2" class="viewport">
+                <div class="hud" id="hud-p2">
+                    <div class="health-bar" id="health-p2">❤️ 20</div>
+                    <div class="hotbar" id="hotbar-p2"></div>
+                    <div class="debug-info" id="debug-p2"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="menu-overlay">
+            <h1>VOXELQUEST</h1>
+            <p>Selecciona modo de juego</p>
+            <div class="menu-buttons">
+                <button id="btn-solo" class="mode-btn">🎮 Jugador Solitario</button>
+                <button id="btn-coop" class="mode-btn">👥 2 Jugadores Split Screen</button>
+                <button id="btn-controls" class="secondary-btn">Controles</button>
+            </div>
+        </div>
+        
+        <div id="inventory-overlay" class="hidden">
+            <div class="inventory-grid" id="inventory-grid-p1"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/noise.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/playermodel.js"></script>
+    <script src="js/gamepad.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/enemies.js"></script>
+    <script src="js/physics.js"></script>
+    <script src="js/building.js"></script>
+    <script src="js/mcp-client.js"></script>
+    <script src="js/console.js"></script>
+    <script src="js/sound.js"></script>
+    <script src="js/daynight.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

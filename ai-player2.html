@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxelQuest - AI Player 2</title>
+    <script>
+        // Auto-start AI for player 2 after game loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.gameUI) {
+                    // Start the game in coop mode
+                    const coopBtn = document.getElementById('btn-coop');
+                    if (coopBtn) coopBtn.click();
+                    
+                    // Wait for game to start then enable AI
+                    const checkGame = setInterval(() => {
+                        if (window.gameUI && window.gameUI.running) {
+                            clearInterval(checkGame);
+                            loadAI();
+                        }
+                    }, 500);
+                }
+            }, 1000);
+            
+            function loadAI() {
+                const p2 = window.gameUI.player2;
+                const world = window.gameUI.world;
+                let running = true;
+                let moveAngle = p2.rotation.y;
+                const CHECK_DIST = 2;
+                
+                function checkBlockAhead(angle) {
+                    const dx = -Math.sin(angle) * CHECK_DIST;
+                    const dz = -Math.cos(angle) * CHECK_DIST;
+                    const bx = Math.floor(p2.position.x + dx);
+                    const by = Math.floor(p2.position.y);
+                    const bz = Math.floor(p2.position.z + dz);
+                    const blockFeet = world.getBlock(bx, by, bz);
+                    const blockHead = world.getBlock(bx, by + 1, bz);
+                    const BLOCK_TYPES = window.BLOCK_TYPES || { AIR: 0, WATER: 9 };
+                    return (blockFeet !== BLOCK_TYPES.AIR && blockFeet !== BLOCK_TYPES.WATER) ||
+                           (blockHead !== BLOCK_TYPES.AIR && blockHead !== BLOCK_TYPES.WATER);
+                }
+                
+                function findSafeDirection() {
+                    for (let offset = 0; offset <= Math.PI; offset += Math.PI / 6) {
+                        for (const sign of [1, -1]) {
+                            const testAngle = moveAngle + offset * sign;
+                            if (!checkBlockAhead(testAngle)) {
+                                moveAngle = testAngle;
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+                
+                function update() {
+                    if (!running || !window.gameUI.running) return;
+                    
+                    const forward = !checkBlockAhead(moveAngle);
+                    if (!forward) findSafeDirection();
+                    
+                    const angleDiff = moveAngle - p2.rotation.y;
+                    const normalized = ((angleDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
+                    
+                    p2.keys['ArrowUp'] = true;
+                    p2.keys['ArrowDown'] = false;
+                    p2.keys['ArrowLeft'] = normalized < -0.1;
+                    p2.keys['ArrowRight'] = normalized > 0.1;
+                    
+                    if (!forward && p2.onGround) {
+                        p2.keys['NumpadEnter'] = true;
+                        setTimeout(() => { p2.keys['NumpadEnter'] = false; }, 100);
+                    }
+                    
+                    requestAnimationFrame(update);
+                }
+                
+                update();
+                console.log('[P2 AI] Iniciado');
+                window.p2AI = { stop: () => { running = false; p2.keys = {}; } };
+            }
+        });
+    </script>
+</head>
+<body>
+    <script>
+        // Load the original game
+        document.write('<scr'+'ipt src="index-original.html"></scr'+'ipt>');
+    </script>
+</body>
+</html>

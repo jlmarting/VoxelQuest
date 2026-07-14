@@ -1,0 +1,452 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+}
+
+#game-container {
+    width: 100vw;
+    height: 100vh;
+}
+
+#split-screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.viewport {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 50%;
+    pointer-events: none;
+}
+
+#viewport-p1 {
+    left: 0;
+}
+
+#viewport-p2 {
+    left: 50%;
+}
+
+#viewport-p1 canvas,
+#viewport-p2 canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.health-bar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 14px;
+    text-shadow: 1px 1px 2px black;
+}
+
+.hotbar {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.hotbar-slot {
+    width: 40px;
+    height: 40px;
+    background: rgba(100, 100, 100, 0.8);
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.hotbar-slot.selected {
+    border-color: #fff;
+    background: rgba(150, 150, 150, 0.9);
+}
+
+.hotbar-slot .block-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.debug-info {
+    position: absolute;
+    top: 40px;
+    left: 10px;
+    color: white;
+    font-size: 12px;
+    text-shadow: 1px 1px 2px black;
+}
+
+#menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+#menu-overlay h1 {
+    color: #5d8c3e;
+    font-size: 48px;
+    text-shadow: 3px 3px 0 #2d5a1e;
+    margin-bottom: 10px;
+}
+
+#menu-overlay p {
+    color: #aaa;
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mode-btn {
+    padding: 20px 50px;
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    background: #2d5a1e;
+    color: white;
+    border: 3px solid #5d8c3e;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 300px;
+}
+
+.mode-btn:hover {
+    background: #3d7a2e;
+    border-color: #7dac5e;
+    transform: scale(1.05);
+}
+
+.secondary-btn {
+    padding: 10px 30px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    background: #4a4a4a;
+    color: #aaa;
+    border: 1px solid #555;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+}
+
+.secondary-btn:hover {
+    background: #5a5a5a;
+    color: white;
+}
+
+#inventory-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(30, 30, 30, 0.95);
+    padding: 20px;
+    border: 2px solid #555;
+    border-radius: 8px;
+    z-index: 50;
+}
+
+#inventory-overlay.hidden {
+    display: none;
+}
+
+/* Inventory UI */
+.inventory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.inventory-header h2 {
+    color: #5d8c3e;
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: white;
+}
+
+.inventory-main {
+    display: flex;
+    gap: 20px;
+}
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 45px);
+    gap: 3px;
+}
+
+.inventory-slot {
+    width: 45px;
+    height: 45px;
+    background: rgba(60, 60, 60, 0.9);
+    border: 2px solid #444;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 9px;
+    cursor: pointer;
+    position: relative;
+}
+
+.inventory-slot:hover {
+    border-color: #888;
+    background: rgba(80, 80, 80, 0.9);
+}
+
+.inventory-slot.selected {
+    border-color: #5d8c3e;
+    background: rgba(93, 140, 62, 0.3);
+}
+
+.inv-item-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+}
+
+.inv-item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+}
+
+.inv-item-name {
+    font-size: 8px;
+    color: #aaa;
+    margin-top: 2px;
+    text-align: center;
+}
+
+.inventory-crafting {
+    width: 200px;
+    background: rgba(40, 40, 40, 0.9);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+}
+
+.inventory-crafting h3 {
+    color: #5d8c3e;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.recipe-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(60, 60, 60, 0.8);
+    border-radius: 4px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.recipe-item:hover {
+    background: rgba(93, 140, 62, 0.3);
+}
+
+.recipe-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.recipe-arrow {
+    color: #888;
+    font-size: 16px;
+}
+
+.recipe-input, .recipe-output {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #ccc;
+    font-size: 12px;
+}
+
+.no-recipes {
+    color: #666;
+    font-size: 12px;
+    text-align: center;
+}
+
+.inventory-hotbar {
+    display: flex;
+    gap: 4px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.hotbar-slot {
+    width: 45px;
+    height: 45px;
+    background: rgba(60, 60, 60, 0.9);
+    border: 2px solid #444;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.hotbar-slot.selected {
+    border-color: #5d8c3e;
+}
+
+.hotbar-item-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+}
+
+.hotbar-item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+}
+
+.block-colors {
+    display: none;
+}
+
+/* Character Customizer */
+.customizer-layout {
+    display: flex;
+    gap: 30px;
+    margin: 20px 0;
+    align-items: flex-start;
+}
+
+.preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#preview-canvas {
+    border: 2px solid #555;
+    border-radius: 8px;
+    cursor: grab;
+}
+
+#preview-canvas:active {
+    cursor: grabbing;
+}
+
+.preview-hint {
+    color: #888;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.customizer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    max-width: 400px;
+}
+
+.customizer-section {
+    background: rgba(40, 40, 40, 0.9);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #555;
+}
+
+.customizer-section h3 {
+    color: #5d8c3e;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.customizer-section label {
+    display: block;
+    color: #ccc;
+    font-size: 11px;
+    margin: 6px 0;
+}
+
+.customizer-section select,
+.customizer-section input[type="color"] {
+    margin-left: 10px;
+    padding: 4px;
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+}
+
+.customizer-section input[type="color"] {
+    width: 50px;
+    height: 25px;
+    cursor: pointer;
+}
+
+#menu-overlay h1 {
+    font-size: 32px;
+    margin-bottom: 5px;
+}
