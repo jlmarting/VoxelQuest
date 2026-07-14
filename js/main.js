@@ -63,6 +63,12 @@ class Game {
         // Building assets
         this.buildingAssets = new BuildingAssets(this.scene);
 
+        // MCP Client for AI control
+        this.mcpClient = new MCPClient(this);
+
+        // In-game console
+        this.gameConsole = null; // Initialized on start
+
         // UI
         this.ui = new UIManager();
 
@@ -332,6 +338,18 @@ GAMEPAD (Xbox 360):
         this.inventoryUI = new InventoryUI(this.player1.inventory);
         window.gameUI = this;
 
+        // Connect to MCP server (optional - won't block game if server not running)
+        this.mcpClient.connect().then(() => {
+            console.log('[MCP] Conectado al servidor MCP');
+            this.mcpClient.sendState();
+        }).catch(err => {
+            console.log('[MCP] Servidor MCP no disponible (opcional)');
+        });
+
+        // Initialize in-game console
+        this.gameConsole = new GameConsole(this);
+        window.gameConsole = this.gameConsole;
+
         // Generate initial chunks
         console.log('[Main] Generating chunks');
         this.world.update(this.player1.position.x, this.player1.position.z);
@@ -427,6 +445,11 @@ GAMEPAD (Xbox 360):
 
         // Update building asset animations (torch flames, etc.)
         this.buildingAssets.updateAnimations(this.clock.elapsedTime);
+
+        // Sync state with MCP server (every frame, but throttled internally)
+        if (this.mcpClient && this.mcpClient.connected) {
+            this.mcpClient.syncState();
+        }
 
         // Update block highlight
         this.updateBlockHighlight();
