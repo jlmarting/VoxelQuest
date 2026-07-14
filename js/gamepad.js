@@ -2,6 +2,7 @@
 class GamepadHandler {
     constructor() {
         this.gamepads = [null, null];
+        this.virtual = [null, null];
         this.previousState = [{}, {}];
         this.deadzone = 0.15;
         this.callbacks = {
@@ -11,6 +12,55 @@ class GamepadHandler {
         };
 
         this.setupListeners();
+    }
+
+    // Crea (si no existe) un gamepad virtual controlado por IA/MCP.
+    enableVirtual(gamepadIndex) {
+        if (!this.virtual[gamepadIndex]) {
+            this.virtual[gamepadIndex] = {
+                leftStick: { x: 0, y: 0 },
+                rightStick: { x: 0, y: 0 },
+                buttons: {
+                    a: false, b: false, x: false, y: false,
+                    lb: false, rb: false, lt: 0, rt: 0,
+                    back: false, start: false, ls: false, rs: false,
+                    dpUp: false, dpDown: false, dpLeft: false, dpRight: false
+                }
+            };
+        }
+        return true;
+    }
+
+    // Actualiza el estado del gamepad virtual con entradas amigables.
+    // move:{x,z} y look:{x,y} en [-1,1]; flags para jump/fly/breakBlock/placeBlock/dp*.
+    setVirtualInput(gamepadIndex, input) {
+        const v = this.virtual[gamepadIndex];
+        if (!v) return false;
+        const clamp = (val) => Math.max(-1, Math.min(1, val || 0));
+        if (input.move) {
+            v.leftStick.x = clamp(input.move.x);
+            v.leftStick.y = clamp(input.move.z);
+        }
+        if (input.look) {
+            v.rightStick.x = clamp(input.look.x);
+            v.rightStick.y = clamp(input.look.y);
+        }
+        if (input.jump !== undefined) v.buttons.a = !!input.jump;
+        if (input.fly !== undefined) v.buttons.ls = !!input.fly;
+        if (input.breakBlock !== undefined) v.buttons.rt = input.breakBlock ? 1 : 0;
+        if (input.placeBlock !== undefined) v.buttons.lt = input.placeBlock ? 1 : 0;
+        if (input.rs !== undefined) v.buttons.rs = !!input.rs;
+        if (input.rb !== undefined) v.buttons.rb = !!input.rb;
+        if (input.dpLeft !== undefined) v.buttons.dpLeft = !!input.dpLeft;
+        if (input.dpRight !== undefined) v.buttons.dpRight = !!input.dpRight;
+        if (input.dpUp !== undefined) v.buttons.dpUp = !!input.dpUp;
+        if (input.dpDown !== undefined) v.buttons.dpDown = !!input.dpDown;
+        return true;
+    }
+
+    disableVirtual(gamepadIndex) {
+        this.virtual[gamepadIndex] = null;
+        return true;
     }
 
     setupListeners() {
@@ -27,6 +77,7 @@ class GamepadHandler {
 
     // Get current state of a gamepad
     getState(gamepadIndex) {
+        if (this.virtual[gamepadIndex]) return this.virtual[gamepadIndex];
         const gamepad = navigator.getGamepads()[gamepadIndex];
         if (!gamepad) return null;
 
@@ -98,9 +149,10 @@ class GamepadHandler {
     // Check if any gamepad is connected
     isConnected(gamepadIndex = -1) {
         if (gamepadIndex >= 0) {
-            return this.gamepads[gamepadIndex] !== null;
+            return this.gamepads[gamepadIndex] !== null || this.virtual[gamepadIndex] !== null;
         }
-        return this.gamepads[0] !== null || this.gamepads[1] !== null;
+        return this.gamepads[0] !== null || this.gamepads[1] !== null ||
+               this.virtual[0] !== null || this.virtual[1] !== null;
     }
 
     // Get movement input for a player
