@@ -54,6 +54,9 @@ const btBlackboard = {
     self_vida: 20,
     self_x: 0,
     self_z: 0,
+    p1_x: 0,
+    p1_z: 0,
+    p1_y: 0,
     target_enemigo_id: null,
     target_enemigo_x: 0,
     target_enemigo_z: 0,
@@ -774,6 +777,31 @@ const mcpHandlers = {
         return loadBehaviorTree(exampleTree);
     },
 
+    // Cargar árbol de seguimiento a Jugador 1
+    bt_load_follow: async (params) => {
+        const dist = params.distancia || 2;
+        const tree = {
+            comportamiento: 'Selector',
+            nombre: 'SeguirAJugador1',
+            hijos: [
+                {
+                    comportamiento: 'Secuencia',
+                    nombre: 'Seguir',
+                    hijos: [
+                        {
+                            comportamiento: 'Accion',
+                            nombre: 'Seguir a distancia',
+                            tipo: 'seguir_a_p1',
+                            parametros: { distancia: dist }
+                        }
+                    ]
+                },
+                { comportamiento: 'Accion', nombre: 'Idle', tipo: 'idle' }
+            ]
+        };
+        return loadBehaviorTree(tree);
+    },
+
     // Estado del motor BT
     bt_status: async () => {
         return {
@@ -977,6 +1005,12 @@ wss.on('connection', (ws) => {
                     if (data.health !== undefined) p2.health = data.health;
                     if (data.rotation) p2.rotation = data.rotation;
                     if (data.isFlying !== undefined) p2.isFlying = data.isFlying;
+                }
+                // Actualizar posición de P1 en el blackboard
+                if (data.p1_position) {
+                    btBlackboard.p1_x = data.p1_position.x;
+                    btBlackboard.p1_z = data.p1_position.z;
+                    btBlackboard.p1_y = data.p1_position.y;
                 }
                 if (data.nearest_enemy) {
                     btBlackboard.hay_enemigos_cerca = true;
