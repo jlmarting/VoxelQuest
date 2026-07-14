@@ -394,6 +394,11 @@ GAMEPAD (Xbox 360):
         // Update gamepad
         this.gamepadHandler.update();
 
+        // Update MCP client pathfinding
+        if (this.mcpClient) {
+            this.mcpClient.update(deltaTime);
+        }
+
         // Update players
         this.player1.update(deltaTime);
         if (this.gameMode === 'coop') {

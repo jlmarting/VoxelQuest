@@ -639,6 +639,13 @@ const mcpHandlers = {
         const player = gameState.players[params.player_id];
         if (!player) return { error: 'Jugador no encontrado' };
         return relayToGame('attack', { player_id: params.player_id, target_id: params.target_id });
+    },
+
+    // Moverse a coordenadas usando pathfinding A* en el navegador
+    moverse_a: async (params) => {
+        const player = gameState.players[params.player_id];
+        if (!player) return { error: 'Jugador no encontrado' };
+        return relayToGame('navigate_to', { player_id: params.player_id, x: params.x, z: params.z }, 30000);
     }
 };
 

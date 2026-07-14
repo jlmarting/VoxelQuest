@@ -14,6 +14,23 @@ class MCPClient {
         this.serverUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}`;
         this.syncInterval = null;
         this.playerStates = {};
+        this.pathfinder = new Pathfinder(game.world);
+        this.follower = new PathFollower();
+        this.pendingResponse = null;
+    }
+
+    update(deltaTime) {
+        this.follower.tick();
+        if (this.follower.state === 'COMPLETE' && this.pendingResponse) {
+            this.sendAsyncResponse(this.pendingResponse);
+            this.pendingResponse = null;
+        }
+    }
+
+    sendAsyncResponse(response) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(response));
+        }
     }
 
     // Conectar al servidor MCP
@@ -390,6 +407,27 @@ class MCPClient {
                     response.image = renderer.domElement.toDataURL('image/jpeg', 0.8);
                     response.width = w; response.height = h; response.format = 'jpeg';
                     renderer.dispose();
+                    break;
+                }
+
+                case 'navigate_to': {
+                    if (!player) { response.error = 'Player not found'; break; }
+                    const goalX = params.x;
+                    const goalZ = params.z;
+                    if (goalX === undefined || goalZ === undefined) {
+                        response.error = 'x and z required'; break;
+                    }
+                    const path = this.pathfinder.findPath(
+                        player.position.x, player.position.z,
+                        goalX, goalZ,
+                        player.position.y
+                    );
+                    if (!path || path.length < 2) {
+                        response.error = 'No path found'; break;
+                    }
+                    this.follower.start(path, params.player_id, player, this.game.gamepadHandler, response);
+                    response.__async = true;
+                    this.pendingResponse = response;
                     break;
                 }
 
