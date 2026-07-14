@@ -9,12 +9,11 @@ release boundary).
 ## [Unreleased]
 
 ### Added
-- `scripts/evade_chase.py`: infinite evade+chase loop with direct wall
-  breaking (by coordinate, not raycast) and teleport escape when trapped
-  in a 1×1 shaft (≥3 solid sides detected via `get_environment`).
-- Fallback guard: floor-break is skipped when chasing upward (`chase_up`,
-  `fly_active`).
+- Add CHANGELOG.md following Keep a Changelog format
+- Add virtual gamepad relay and autonomous chase/evade scripts
 
+### Changed
+- Enhance evade_chase with direct wall breaking and teleport escape
 ## [48337cd] — 2026-07-14
 
 ### Added
