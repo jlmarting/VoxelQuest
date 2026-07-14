@@ -584,7 +584,52 @@ class MCPClient {
     startSync() {
         this.syncInterval = setInterval(() => {
             this.syncState();
-        }, 1000); // Cada segundo
+        }, 1000);
+
+        // Heartbeat ligero para BT (solo datos esenciales a 10Hz)
+        this.heartbeatInterval = setInterval(() => {
+            this.sendHeartbeat();
+        }, 100);
+    }
+
+    // Heartbeat ligero para el Blackboard del BT
+    sendHeartbeat() {
+        if (!this.connected || !this.game.running) return;
+        const p2 = this.game.player2;
+        if (!p2) return;
+        const data = {
+            type: 'bt_heartbeat',
+            player_id: 2,
+            health: p2.health,
+            position: { x: p2.position.x, y: p2.position.y, z: p2.position.z },
+            rotation: { x: p2.rotation.x, y: p2.rotation.y },
+            isFlying: p2.isFlying
+        };
+        if (this.game.enemyManager && this.game.enemyManager.enemies) {
+            const enemies = this.game.enemyManager.enemies.map(e => ({
+                id: e.id,
+                type: e.type,
+                health: e.health,
+                x: e.position.x,
+                y: e.position.y,
+                z: e.position.z
+            }));
+            if (enemies.length > 0) {
+                data.nearest_enemy = enemies.reduce((a, b) =>
+                    Math.hypot(a.x - p2.position.x, a.z - p2.position.z) <
+                    Math.hypot(b.x - p2.position.x, b.z - p2.position.z) ? a : b
+                );
+            } else {
+                data.nearest_enemy = null;
+            }
+        }
+        this.sendMessage(data);
+    }
+
+    sendMessage(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
     }
 
     // Detener sincronización
@@ -592,6 +637,10 @@ class MCPClient {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
+        }
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
         }
     }
 

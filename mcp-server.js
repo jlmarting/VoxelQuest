@@ -721,6 +721,59 @@ const mcpHandlers = {
         return result;
     },
 
+    // Cargar árbol de ejemplo de la especificación
+    bt_load_example: async () => {
+        const exampleTree = {
+            comportamiento: 'Selector',
+            nombre: 'Raiz',
+            hijos: [
+                {
+                    comportamiento: 'Secuencia',
+                    nombre: 'Autopreservacion',
+                    hijos: [
+                        {
+                            comportamiento: 'Condicion',
+                            nombre: 'Vida Critica',
+                            variable: 'self_vida',
+                            comparacion: 'menor_que',
+                            valor_comparar: 5
+                        },
+                        {
+                            comportamiento: 'Accion',
+                            nombre: 'Huir',
+                            tipo: 'moverse_a',
+                            parametros: { x: -10, z: -10 }
+                        }
+                    ]
+                },
+                {
+                    comportamiento: 'Secuencia',
+                    nombre: 'Atacar Enemigo',
+                    hijos: [
+                        {
+                            comportamiento: 'Condicion',
+                            nombre: 'Enemigo en Rango',
+                            variable: 'hay_enemigos_cerca',
+                            comparacion: 'verdadero'
+                        },
+                        {
+                            comportamiento: 'Accion',
+                            nombre: 'Atacar',
+                            tipo: 'golpear',
+                            parametros: {}
+                        }
+                    ]
+                },
+                {
+                    comportamiento: 'Accion',
+                    nombre: 'Esperar',
+                    tipo: 'idle'
+                }
+            ]
+        };
+        return loadBehaviorTree(exampleTree);
+    },
+
     // Estado del motor BT
     bt_status: async () => {
         return {
@@ -904,7 +957,6 @@ wss.on('connection', (ws) => {
                     }
                 });
 
-                // Actualizar blackboard con datos de entidades si están disponibles
                 if (data.state.entities) {
                     const enemies = data.state.entities.filter(e => e.type === 'enemy');
                     const nearest = enemies.sort((a, b) => a.distance - b.distance)[0];
@@ -914,6 +966,25 @@ wss.on('connection', (ws) => {
                         btBlackboard.target_enemigo_x = nearest.position ? nearest.position.x : nearest.x;
                         btBlackboard.target_enemigo_z = nearest.position ? nearest.position.z : nearest.z;
                     }
+                }
+            }
+
+            // Heartbeat ligero para BT (10Hz)
+            if (data.type === 'bt_heartbeat') {
+                const p2 = gameState.players[2];
+                if (p2) {
+                    if (data.position) p2.position = data.position;
+                    if (data.health !== undefined) p2.health = data.health;
+                    if (data.rotation) p2.rotation = data.rotation;
+                    if (data.isFlying !== undefined) p2.isFlying = data.isFlying;
+                }
+                if (data.nearest_enemy) {
+                    btBlackboard.hay_enemigos_cerca = true;
+                    btBlackboard.target_enemigo_id = data.nearest_enemy.id;
+                    btBlackboard.target_enemigo_x = data.nearest_enemy.x;
+                    btBlackboard.target_enemigo_z = data.nearest_enemy.z;
+                } else {
+                    btBlackboard.hay_enemigos_cerca = false;
                 }
             }
         } catch (e) {
