@@ -1242,32 +1242,43 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         try {
-            const data = JSON.parse(message);
-            console.log('[WS] Recibido:', data.type || data.command);
+            const data = JSON.parse(message.toString());
 
             // Actualizar estado desde el juego
-            if (data.type === 'state_update' && data.state) {
-                if (data.state.players) {
-                    Object.entries(data.state.players).forEach(([id, p]) => {
-                        if (gameState.players[id]) {
-                            gameState.players[id].position = p.position;
-                            gameState.players[id].health = p.health;
-                            gameState.players[id].rotation = p.rotation;
-                            gameState.players[id].onGround = p.onGround;
-                            gameState.players[id].isFlying = p.isFlying;
-                        }
-                    });
-                }
+            if (data.type === 'state_update' && data.state && data.state.players) {
+                Object.entries(data.state.players).forEach(([id, p]) => {
+                    if (gameState.players[id]) {
+                        if (p.position) gameState.players[id].position = p.position;
+                        if (p.health !== undefined) gameState.players[id].health = p.health;
+                        if (p.rotation) gameState.players[id].rotation = p.rotation;
+                        if (p.onGround !== undefined) gameState.players[id].onGround = p.onGround;
+                        if (p.isFlying !== undefined) gameState.players[id].isFlying = p.isFlying;
+                    }
+                });
             }
         } catch (e) {
-            console.error('[WS] Error:', e.message);
+            // Silently ignore parse errors from game
         }
     });
 
     ws.on('close', () => {
-        console.log('[WS] Juego desconectado');
         gameClients = gameClients.filter(c => c !== ws);
     });
+
+    ws.on('error', () => {
+        gameClients = gameClients.filter(c => c !== ws);
+    });
+});
+
+// ============================================================
+// GLOBAL ERROR HANDLER
+// ============================================================
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL]', err.message);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('[REJECT]', err);
 });
 
 // ============================================================
