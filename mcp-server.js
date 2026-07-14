@@ -630,6 +630,15 @@ const mcpHandlers = {
             gameState.onChatMessage({ player_id, message });
         }
         return { success: true };
+    },
+
+    // ---- COMBATE ----
+
+    // Atacar entidad (golpear)
+    attack: async (params) => {
+        const player = gameState.players[params.player_id];
+        if (!player) return { error: 'Jugador no encontrado' };
+        return relayToGame('attack', { player_id: params.player_id, target_id: params.target_id });
     }
 };
 
