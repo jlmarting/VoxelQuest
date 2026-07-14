@@ -464,6 +464,19 @@ class Player {
             }
         }
     }
+
+    hitEntity(enemy) {
+        if (!enemy || enemy.health <= 0) return false;
+        const dir = this.getForwardDirection();
+        const to = new THREE.Vector3().copy(enemy.position).sub(this.position);
+        const dist = to.length();
+        if (dist > 3.0) return false;
+        const dot = to.clone().normalize().dot(dir);
+        if (dot < 0.707) return false;
+        const dead = enemy.takeDamage(4, this.position);
+        if (this.sound) this.sound.blockBreak();
+        return dead;
+    }
 }
 
 window.Player = Player;

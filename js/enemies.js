@@ -37,6 +37,7 @@ const ENEMY_TYPES = {
 
 class Enemy {
     constructor(type, position, world) {
+        this.id = EnemyManager.nextEnemyId++;
         this.type = type;
         this.config = ENEMY_TYPES[type];
         this.world = world;
@@ -44,6 +45,7 @@ class Enemy {
         this.position = position.clone();
         this.velocity = new THREE.Vector3(0, 0, 0);
         this.health = this.config.health;
+        this.maxHealth = this.config.health;
         this.onGround = false;
         this.lastAttackTime = 0;
         
@@ -209,9 +211,28 @@ class Enemy {
         return false;
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, attackerPos) {
         this.health -= amount;
+        if (attackerPos) {
+            const dir = new THREE.Vector3()
+                .copy(this.position)
+                .sub(attackerPos)
+                .normalize();
+            this.velocity.x = dir.x * 8;
+            this.velocity.z = dir.z * 8;
+            this.velocity.y = 6;
+        }
+        this.hitFlash();
         return this.health <= 0;
+    }
+
+    hitFlash() {
+        if (!this.mesh) return;
+        const original = this.mesh.material.color.getHex();
+        this.mesh.material.color.setHex(0xff4444);
+        setTimeout(() => {
+            if (this.mesh) this.mesh.material.color.setHex(original);
+        }, 100);
     }
 
     dispose() {
@@ -222,6 +243,8 @@ class Enemy {
     }
 }
 
+EnemyManager.nextEnemyId = 1;
+
 class EnemyManager {
     constructor(world) {
         this.world = world;
@@ -230,6 +253,27 @@ class EnemyManager {
         this.spawnRadius = 20;
         this.spawnCooldown = 5000;
         this.lastSpawnTime = 0;
+    }
+
+    findEnemyById(id) {
+        return this.enemies.find(e => e.id === id) || null;
+    }
+
+    findNearestInCone(playerPos, playerDir, maxDist, coneDot) {
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const enemy of this.enemies) {
+            const to = new THREE.Vector3().copy(enemy.position).sub(playerPos);
+            const dist = to.length();
+            if (dist > maxDist) continue;
+            const dot = to.clone().normalize().dot(playerDir);
+            if (dot < coneDot) continue;
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = enemy;
+            }
+        }
+        return nearest;
     }
 
     update(deltaTime, players, scene, isNight) {

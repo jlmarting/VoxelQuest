@@ -393,6 +393,27 @@ class MCPClient {
                     break;
                 }
 
+                case 'attack': {
+                    if (!player) { response.error = 'Player not found'; break; }
+                    const mgr = this.game.enemyManager;
+                    if (!mgr) { response.error = 'No enemy manager'; break; }
+                    let enemy = null;
+                    if (params.target_id) {
+                        enemy = mgr.findEnemyById(params.target_id);
+                        if (!enemy) { response.error = 'Enemy not found'; break; }
+                    } else {
+                        const dir = player.getForwardDirection();
+                        enemy = mgr.findNearestInCone(player.position, dir, 3.0, 0.707);
+                        if (!enemy) { response.error = 'No enemy in range'; break; }
+                    }
+                    const dead = player.hitEntity(enemy);
+                    response.success = true;
+                    response.damaged = true;
+                    response.enemyDead = dead;
+                    if (dead) response.enemyId = enemy.id;
+                    break;
+                }
+
                 case 'execute_command':
                     if (this.game.gameConsole) this.game.gameConsole.executeRemoteCommand(params.command);
                     response.success = true;
