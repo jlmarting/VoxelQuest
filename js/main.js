@@ -64,7 +64,7 @@ class Game {
         this.buildingAssets = new BuildingAssets(this.scene);
 
         // MCP Client for AI control
-        this.mcpClient = new MCPClient(this);
+        this.gameClient = new GameClient(this);
 
         // In-game console
         this.gameConsole = null; // Initialized on start
@@ -338,12 +338,12 @@ GAMEPAD (Xbox 360):
         this.inventoryUI = new InventoryUI(this.player1.inventory);
         window.gameUI = this;
 
-        // Connect to MCP server (optional - won't block game if server not running)
-        this.mcpClient.connect().then(() => {
-            console.log('[MCP] Conectado al servidor MCP');
-            this.mcpClient.sendState();
+        // Connect to game server (optional - won't block game if not running)
+        this.gameClient.connect().then(() => {
+            console.log('[Game] Conectado al servidor');
+            this.gameClient.sendState();
         }).catch(err => {
-            console.log('[MCP] Servidor MCP no disponible (opcional)');
+            console.log('[Game] Servidor no disponible (opcional)');
         });
 
         // Initialize in-game console
@@ -394,9 +394,9 @@ GAMEPAD (Xbox 360):
         // Update gamepad
         this.gamepadHandler.update();
 
-        // Update MCP client pathfinding
-        if (this.mcpClient) {
-            this.mcpClient.update(deltaTime);
+        // Update game client pathfinding
+        if (this.gameClient) {
+            this.gameClient.update(deltaTime);
         }
 
         // Update players
@@ -451,9 +451,9 @@ GAMEPAD (Xbox 360):
         // Update building asset animations (torch flames, etc.)
         this.buildingAssets.updateAnimations(this.clock.elapsedTime);
 
-        // Sync state with MCP server (every frame, but throttled internally)
-        if (this.mcpClient && this.mcpClient.connected) {
-            this.mcpClient.syncState();
+        // Sync state with server (every frame, but throttled internally)
+        if (this.gameClient && this.gameClient.connected) {
+            this.gameClient.syncState();
         }
 
         // Update block highlight

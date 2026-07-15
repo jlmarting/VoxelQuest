@@ -12,10 +12,10 @@ Implementado sistema de pathfinding A* en 2D con path follower que traduce la ru
 | Archivo | Cambio |
 |---------|--------|
 | `js/navigation.js` | **Nuevo**: `Pathfinder` (A*) + `PathFollower` (cola de movimiento) |
-| `js/mcp-client.js` | Nuevos: `pathfinder`, `follower`, `update()`, `sendAsyncResponse()`, handler `navigate_to` |
-| `js/main.js` | Nueva llamada a `mcpClient.update(deltaTime)` en game loop |
+| `js/game-client.js` | Nuevos: `pathfinder`, `follower`, `update()`, `sendAsyncResponse()`, handler `navigate_to` |
+| `js/main.js` | Nueva llamada a `gameClient.update(deltaTime)` en game loop |
 | `index.html` | Agregado script `js/navigation.js` después de `world.js` |
-| `mcp-server.js` | Nuevo handler `moverse_a` con timeout de 30s para navegación |
+| `voxelquest-server.js` | Nuevo handler `moverse_a` con timeout de 30s para navegación |
 
 ## Detalles Técnicos
 
@@ -44,7 +44,7 @@ moverse_a(x, z)  →  navigate_to  →  A* findPath  →  PathFollower.start()
 ### Manejador Async
 - `navigate_to` usa `__async: true` para no responder inmediatamente
 - `PathFollower` marca `COMPLETE` al llegar
-- `MCPClient.update()` detecta el estado y envía respuesta vía WebSocket
+- `GameClient.update()` detecta el estado y envía respuesta vía WebSocket
 - relayToGame en servidor usa timeout de 30 segundos para rutas largas
 
 ## Decisiones (ADRs)
@@ -74,7 +74,7 @@ moverse_a(x, z)  →  navigate_to  →  A* findPath  →  PathFollower.start()
 
 ```bash
 # Iniciar servidor
-node mcp-server.js
+node voxelquest-server.js
 
 # En el navegador, seleccionar modo coop (Jugador 2)
 # Luego:

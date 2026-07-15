@@ -5,15 +5,15 @@
 
 ## Resumen
 
-Implementado motor de Árboles de Comportamiento en Node.js con parser de JSON, resolución de variables del Blackboard, estado RUNNING, y tick loop a 10Hz. Integrado en mcp-server.js con endpoint POST /bt.
+Implementado motor de Árboles de Comportamiento en Node.js con parser de JSON, resolución de variables del Blackboard, estado RUNNING, y tick loop a 10Hz. Integrado en voxelquest-server.js con endpoint POST /bt.
 
 ## Archivos Creados/Modificados
 
 | Archivo | Cambio |
 |---------|--------|
 | `bt-engine.js` | **Nuevo**: `BehaviorTree`, `BTNode`, `createActionCatalog`, validación de schema |
-| `mcp-server.js` | Integración BT: `loadBehaviorTree()`, `startBtTick()`, `stopBtTick()`, `btRelay()`, handlers `bt_load`/`bt_status`/`bt_stop`, blackboard en estado sync |
-| `js/mcp-client.js` | `syncState()` ahora incluye entidades (enemigos) para el blackboard |
+| `voxelquest-server.js` | Integración BT: `loadBehaviorTree()`, `startBtTick()`, `stopBtTick()`, `btRelay()`, handlers `bt_load`/`bt_status`/`bt_stop`, blackboard en estado sync |
+| `js/game-client.js` | `syncState()` ahora incluye entidades (enemigos) para el blackboard |
 
 ## Detalles Técnicos
 
@@ -40,7 +40,7 @@ Implementado motor de Árboles de Comportamiento en Node.js con parser de JSON, 
 - Validación de tipos: comportamiento, comparacion, tipo deben ser válidos
 - Acciones deben existir en el catálogo
 
-### mcp-server.js — Integración
+### voxelquest-server.js — Integración
 
 ```
 POST /bt  →  loadBehaviorTree(json)  →  startBtTick()
@@ -87,7 +87,7 @@ POST /bt  →  loadBehaviorTree(json)  →  startBtTick()
 
 ```bash
 # Iniciar servidor
-node mcp-server.js
+node voxelquest-server.js
 
 # Cargar árbol
 curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \

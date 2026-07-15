@@ -53,7 +53,7 @@ npm install
 El servidor unificado sirve tanto el juego como la API MCP:
 
 ```bash
-node mcp-server.js
+node voxelquest-server.js
 ```
 
 El servidor arranca en el puerto **9000** por defecto. Verás en consola:
@@ -79,7 +79,7 @@ El navegador se abrirá automáticamente. Si no, visita `http://localhost:9000`.
 ┌─────────────────────────────────────────────────────────┐
 │                    Navegador (Juego)                     │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│  │   Jugador   │    │    Mundo    │    │ MCP Client  │  │
+│  │   Jugador   │    │    Mundo    │    │ Game Client │  │
 │  │  (Player)   │    │   (World)   │    │  (WebSocket)│  │
 │  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘  │
 │         │                  │                  │         │
@@ -88,7 +88,7 @@ El navegador se abrirá automáticamente. Si no, visita `http://localhost:9000`.
                               │ WebSocket
                               ▼
 ┌─────────────────────────────────────────────────────────┐
-│               Servidor MCP (mcp-server.js)               │
+│               Servidor MCP (voxelquest-server.js)               │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
 │  │ HTTP API    │    │  WebSocket  │    │  Handlers   │  │
 │  │  /mcp       │    │   Server    │    │    MCP      │  │
@@ -124,8 +124,13 @@ POST http://localhost:9000/mcp
 Content-Type: application/json
 
 {
-  "method": "nombre_del_metodo",
-  "params": { ... }
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "nombre_del_metodo",
+    "arguments": { ... }
+  }
 }
 ```
 
@@ -137,8 +142,10 @@ Conecta vía WebSocket para comunicación bidireccional:
 const ws = new WebSocket('ws://localhost:9000');
 ws.onopen = () => {
   ws.send(JSON.stringify({
-    method: 'list_players',
-    params: {}
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: { name: 'list_players', arguments: {} }
   }));
 };
 ws.onmessage = (event) => {
@@ -267,7 +274,7 @@ curl http://localhost:9000/health
 ```bash
 curl -X POST http://localhost:9000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"method": "list_players", "params": {}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_players","arguments":{}}}'
 ```
 
 ### Mover jugador 1 a posición específica
@@ -275,7 +282,7 @@ curl -X POST http://localhost:9000/mcp \
 ```bash
 curl -X POST http://localhost:9000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"method": "move_player", "params": {"player_id": 1, "x": 50, "y": 30, "z": 50}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"move_player","arguments":{"player_id":1,"x":50,"y":30,"z":50}}}'
 ```
 
 ### Crear avatar controlado por IA
@@ -283,20 +290,7 @@ curl -X POST http://localhost:9000/mcp \
 ```bash
 curl -X POST http://localhost:9000/mcp \
   -H "Content-Type: application/json" \
-  -d '{
-    "method": "create_avatar",
-    "params": {
-      "name": "Explorador_IA",
-      "gender": "female",
-      "hairStyle": "long",
-      "hairColor": 0x8B4513,
-      "eyeColor": 0x228B22,
-      "shirtColor": 0x4169E1,
-      "pantsColor": 0x2F4F4F,
-      "spawnX": 20,
-      "spawnZ": 20
-    }
-  }'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_avatar","arguments":{"name":"Explorador_IA","gender":"female","hairStyle":"long","hairColor":0x8B4513,"eyeColor":0x228B22,"shirtColor":0x4169E1,"pantsColor":0x2F4F4F,"spawnX":20,"spawnZ":20}}}'
 ```
 
 ### Construir una casa
@@ -304,7 +298,7 @@ curl -X POST http://localhost:9000/mcp \
 ```bash
 curl -X POST http://localhost:9000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"method": "build_structure", "params": {"x": 30, "y": 20, "z": 30, "structure": "house"}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"build_structure","arguments":{"x":30,"y":20,"z":30,"structure":"house"}}}'
 ```
 
 ### Obtener vista del jugador
@@ -312,7 +306,7 @@ curl -X POST http://localhost:9000/mcp \
 ```bash
 curl -X POST http://localhost:9000/mcp \
   -H "Content-Type: application/json" \
-  -d '{"method": "get_top_down_view", "params": {"player_id": 1, "radius": 10}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_top_down_view","arguments":{"player_id":1,"radius":10}}}'
 ```
 
 ### Ejemplo en Python
@@ -323,8 +317,8 @@ import json
 
 MCP_URL = "http://localhost:9000/mcp"
 
-def mcp_call(method, params=None):
-    response = requests.post(MCP_URL, json={"method": method, "params": params or {}})
+def mcp_call(name, arguments=None):
+    response = requests.post(MCP_URL, json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments or {}}})
     return response.json()
 
 # Listar jugadores
@@ -341,11 +335,11 @@ mcp_call("build_structure", {"x": 100, "y": 20, "z": 100, "structure": "tower"})
 ### Ejemplo en JavaScript
 
 ```javascript
-async function mcpCall(method, params = {}) {
+async function mcpCall(name, arguments = {}) {
   const response = await fetch('http://localhost:9000/mcp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ method, params })
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments } })
   });
   return response.json();
 }
@@ -383,7 +377,7 @@ Las acciones se ejecutan automáticamente sin confirmación humana.
 
 ```bash
 curl -X POST http://localhost:9000/mcp \
-  -d '{"method": "set_approval_mode", "params": {"mode": "auto"}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"set_approval_mode","arguments":{"mode":"auto"}}}'
 ```
 
 ### Modo Humano
@@ -393,12 +387,12 @@ Requiere aprobación de un jugador humano antes de ejecutar acciones sensibles (
 ```bash
 # Activar modo humano
 curl -X POST http://localhost:9000/mcp \
-  -d '{"method": "set_approval_mode", "params": {"mode": "human"}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"set_approval_mode","arguments":{"mode":"human"}}}'
 
 # Cuando un agente IA quiere crear un avatar, queda en cola
 # El humano puede aprobarlo:
 curl -X POST http://localhost:9000/mcp \
-  -d '{"method": "approve_request", "params": {"approvalId": "1234567890", "approved": true}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"approve_request","arguments":{"approvalId":"1234567890","approved":true}}}'
 ```
 
 ---
@@ -443,7 +437,7 @@ lsof -i :9000
 kill -9 <PID>
 
 # O usar otro puerto
-PORT=9001 node mcp-server.js
+PORT=9001 node voxelquest-server.js
 ```
 
 ### El juego no recibe comandos MCP
@@ -470,7 +464,7 @@ El mundo se inicializa cuando el juego comienza. Asegúrate de haber seleccionad
 | Método | URL | Descripción |
 |--------|-----|-------------|
 | GET | `/health` | Estado del servidor |
-| GET | `/tools` | Lista de herramientas MCP disponibles |
+| GET | `/tools` | Lista de herramientas MCP disponibles (JSON-RPC 2.0) |
 | POST | `/mcp` | Ejecutar comando MCP |
 | GET | `/*` | Archivos estáticos del juego |
 

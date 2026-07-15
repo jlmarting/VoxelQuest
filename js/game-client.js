@@ -1,11 +1,11 @@
 /**
- * VoxelQuest MCP Client
+ * VoxelQuest Game Client
  * 
- * Sincroniza el estado del juego con el servidor MCP.
+ * Sincroniza el estado del juego con el servidor.
  * Permite que agentes IA controlen jugadores remotamente.
  */
 
-class MCPClient {
+class GameClient {
     constructor(game) {
         this.game = game;
         this.connected = false;
@@ -496,6 +496,15 @@ class MCPClient {
                     break;
                 }
 
+                case 'console_command':
+                    if (this.game.console && this.game.console.executeRemoteCommand) {
+                        this.game.console.executeRemoteCommand(params.command);
+                        response.success = true;
+                    } else {
+                        response.error = 'Console not available';
+                    }
+                    break;
+
                 default:
                     response.error = 'Unknown method';
             }
@@ -725,4 +734,4 @@ class MCPClient {
 }
 
 // Exportar
-window.MCPClient = MCPClient;
+window.GameClient = GameClient;
