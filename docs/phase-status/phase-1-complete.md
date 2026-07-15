@@ -18,8 +18,8 @@ Implementado sistema de combate cuerpo a cuerpo con detección de cono visual (d
 | `js/enemies.js` | Nuevo `EnemyManager.nextEnemyId` contador estático |
 | `js/enemies.js` | Nuevo `findEnemyById(id)` para búsqueda por ID |
 | `js/enemies.js` | Nuevo `findNearestInCone(pos, dir, maxDist, dot)` para detección automática |
-| `js/mcp-client.js` | Nuevo handler `attack`: soporta `target_id` o auto-detección del enemigo más cercano en cono |
-| `mcp-server.js` | Nuevo handler MCP `attack` con relay al browser |
+| `js/game-client.js` | Nuevo handler `attack`: soporta `target_id` o auto-detección del enemigo más cercano en cono |
+| `voxelquest-server.js` | Nuevo handler MCP `attack` con relay al browser |
 
 ## Decisiones (ADRs)
 

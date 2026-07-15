@@ -7,17 +7,33 @@ y reorienta la camara progresivamente.
 import json, math, time, urllib.request
 
 URL = "http://localhost:9000/mcp"
+_RPC_ID = 0
 
 
 def mcp(method, params):
+    global _RPC_ID
+    _RPC_ID += 1
     req = urllib.request.Request(
         URL,
-        data=json.dumps({"method": method, "params": params}).encode(),
+        data=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": _RPC_ID,
+                "method": "tools/call",
+                "params": {"name": method, "arguments": params},
+            }
+        ).encode(),
         headers={"Content-Type": "application/json"},
     )
     try:
         with urllib.request.urlopen(req, timeout=8) as r:
-            return json.loads(r.read().decode())
+            resp = json.loads(r.read().decode())
+            if "error" in resp:
+                return {"error": resp["error"].get("message", str(resp["error"]))}
+            content = resp.get("result", {}).get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                return json.loads(content[0]["text"])
+            return {}
     except Exception as e:
         return {"error": str(e)}
 

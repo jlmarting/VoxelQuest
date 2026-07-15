@@ -11,8 +11,8 @@ Integración completa del sistema: browser → WebSocket heartbeat → servidor 
 
 | Archivo | Cambio |
 |---------|--------|
-| `js/mcp-client.js` | Nuevo `bt_heartbeat` a 100ms (posición, vida, enemigo más cercano). Separado `sendMessage()` |
-| `mcp-server.js` | Nuevo handler `bt_heartbeat` en WebSocket. Nuevo handler `bt_load_example` (árbol de la spec). Blackboard actualiza desde heartbeat |
+| `js/game-client.js` | Nuevo `bt_heartbeat` a 100ms (posición, vida, enemigo más cercano). Separado `sendMessage()` |
+| `voxelquest-server.js` | Nuevo handler `bt_heartbeat` en WebSocket. Nuevo handler `bt_load_example` (árbol de la spec). Blackboard actualiza desde heartbeat |
 | `bt-engine.js` | Eliminado parámetro `relayFn` innecesario de `createActionCatalog()` |
 | `AGENTS.md` | Nuevas secciones: BT Engine, Combat, Navigation, Documentation. Actualizados entrypoints, gotchas |
 
@@ -21,7 +21,7 @@ Integración completa del sistema: browser → WebSocket heartbeat → servidor 
 ```
 curl -X POST /mcp
   ↓ bt_load_example
-mcp-server.js
+voxelquest-server.js
   ↓ loadBehaviorTree()
 bt-engine.js
   ↓ startBtTick() ← setInterval 100ms
@@ -67,7 +67,7 @@ bt-engine.js
 
 ```bash
 # 1. Iniciar servidor
-node mcp-server.js
+node voxelquest-server.js
 
 # 2. Cargar árbol de ejemplo (en navegador, modo coop)
 curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \

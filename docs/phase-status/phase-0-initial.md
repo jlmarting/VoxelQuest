@@ -15,12 +15,12 @@ Estado base del proyecto VoxelQuest antes de iniciar la implementación del sist
 │  ├── player.js          → Físicas, movimiento, inventario   │
 │  ├── enemies.js         → IA de enemigos (zombie, skeleton) │
 │  ├── gamepad.js         → Input virtual                     │
-│  ├── mcp-client.js      → WebSocket relay al servidor       │
+│  ├── game-client.js      → WebSocket relay al servidor       │
 │  └── world.js           → Mundo voxel procedural            │
 └─────────────────────────────────────────────────────────────┘
                           ↕ WebSocket
 ┌─────────────────────────────────────────────────────────────┐
-│  Node.js (mcp-server.js)                                    │
+│  Node.js (voxelquest-server.js)                                    │
 │  ├── HTTP API           → POST /mcp (comandos)              │
 │  ├── WebSocket Server   → Relay bidireccional               │
 │  └── Game State Mirror  → Estado de jugadores (1, 2, AI)    │
@@ -31,13 +31,13 @@ Estado base del proyecto VoxelQuest antes de iniciar la implementación del sist
 
 ### ✅ Implementado
 
-**Servidor MCP (mcp-server.js)**
+**Servidor MCP (voxelquest-server.js)**
 - 50+ handlers MCP: `move_player`, `gamepad_input`, `get_nearby_entities`, etc.
 - Sistema de aprobación (auto/human) para crear avatares
 - Relay WebSocket bidireccional con correlación por ID
 - Sincronización de estado cada 1 segundo
 
-**Cliente MCP (js/mcp-client.js)**
+**Cliente MCP (js/game-client.js)**
 - Handler de comandos relay (move, look, place_block, etc.)
 - Sincronización periódica de estado (1 Hz)
 - Raycast desde jugador para interacción con bloques
@@ -78,8 +78,8 @@ Estado base del proyecto VoxelQuest antes de iniciar la implementación del sist
 
 | Archivo | Líneas | Propósito |
 |---------|--------|-----------|
-| `mcp-server.js` | 849 | Servidor MCP + HTTP + WebSocket |
-| `js/mcp-client.js` | 601 | Cliente MCP en browser |
+| `voxelquest-server.js` | 849 | Servidor MCP + HTTP + WebSocket |
+| `js/game-client.js` | 601 | Cliente MCP en browser |
 | `js/player.js` | 469 | Físicas y controles del jugador |
 | `js/enemies.js` | 304 | IA y lógica de enemigos |
 | `js/gamepad.js` | ~200 | Input virtual para IA |
@@ -94,7 +94,7 @@ Estado base del proyecto VoxelQuest antes de iniciar la implementación del sist
 **Fase 1: Sistema de Combate Melee**
 1. Implementar `Player.prototype.hitEntity(targetId)` en `js/player.js`
 2. Añadir knockback a `Enemy.takeDamage()` en `js/enemies.js`
-3. Crear handler MCP `attack` en `js/mcp-client.js` y `mcp-server.js`
+3. Crear handler MCP `attack` en `js/game-client.js` y `voxelquest-server.js`
 4. Añadir feedback visual (flash rojo)
 
 **Criterios de Éxito:**
