@@ -46,6 +46,7 @@ class Game {
         // Player models (visible characters)
         this.playerModel1 = new PlayerModel(1, this.scene);
         this.playerModel2 = new PlayerModel(2, this.scene);
+        this.avatarModels = new Map(); // id → { group, name }
 
         // Assign layers: P1 model on layer 1, P2 model on layer 2
         this.playerModel1.group.layers.set(1);
@@ -76,7 +77,7 @@ class Game {
         this.running = false;
         this.menuOpen = true;
         this.activePlayer = 1;
-        this.gameMode = 'solo'; // 'solo' or 'coop'
+        this.gameMode = 'solo'; // 'solo', 'coop' or 'training'
 
         // Block highlight
         this.blockHighlight = this.createBlockHighlight();
@@ -91,6 +92,10 @@ class Game {
 
         this.setupEventListeners();
         this.setupMenu();
+    }
+
+    get isMultiplayer() {
+        return this.gameMode !== 'solo';
     }
 
     createCrosshair() {
@@ -138,6 +143,12 @@ class Game {
 
         coopBtn.addEventListener('click', () => {
             this.gameMode = 'coop';
+            this.showCustomizer();
+        });
+
+        const trainingBtn = document.getElementById('btn-training');
+        trainingBtn.addEventListener('click', () => {
+            this.gameMode = 'training';
             this.showCustomizer();
         });
 
@@ -191,7 +202,7 @@ GAMEPAD (Xbox 360):
             const width = window.innerWidth;
             const height = window.innerHeight;
 
-            if (this.gameMode === 'coop') {
+            if (this.isMultiplayer) {
                 this.camera1.aspect = width / (2 * height);
                 this.camera2.aspect = width / (2 * height);
             } else {
@@ -207,7 +218,7 @@ GAMEPAD (Xbox 360):
         document.addEventListener('click', (e) => {
             if (!this.running) return;
 
-            if (this.gameMode === 'coop') {
+            if (this.isMultiplayer) {
                 const clickX = e.clientX;
                 this.activePlayer = clickX < window.innerWidth / 2 ? 1 : 2;
             } else {
@@ -261,7 +272,7 @@ GAMEPAD (Xbox 360):
                 if (this.inventoryUI) this.inventoryUI.toggle();
             }
 
-            if (e.code === 'KeyP' && this.gameMode === 'coop') {
+            if (e.code === 'KeyP' && this.isMultiplayer) {
                 if (this.inventoryUI) this.inventoryUI.toggle();
             }
 
@@ -285,7 +296,7 @@ GAMEPAD (Xbox 360):
             // X key toggles collision boxes
             if (e.code === 'KeyX') {
                 this.playerModel1.toggleCollision();
-                if (this.gameMode === 'coop') {
+                if (this.isMultiplayer) {
                     this.playerModel2.toggleCollision();
                 }
             }
@@ -295,7 +306,40 @@ GAMEPAD (Xbox 360):
                 const enabled = this.sound.toggle();
                 this.ui.showNotification(enabled ? 'Sonido: ON' : 'Sonido: OFF');
             }
+
+            // R key toggles recording (training mode only)
+            if (e.code === 'KeyR' && this.gameMode === 'training' && this.gameClient) {
+                if (this._recording) {
+                    const r = this.gameClient._stopRecording();
+                    this._recording = false;
+                    this._updateRecIndicator();
+                    if (r.success) this.ui.showNotification(`✅ Episodio "${r.scenario}" (${r.frames} frames)`);
+                } else {
+                    const name = prompt('Nombre del escenario:');
+                    if (name && name.trim()) {
+                        this.gameClient._startRecording(name.trim());
+                        this._recording = true;
+                        this._updateRecIndicator();
+                        this.ui.showNotification(`🔴 Grabando: ${name.trim()}`);
+                    }
+                }
+            }
         });
+
+        // Recorder indicator helper
+        this._recIndicator = document.getElementById('rec-indicator');
+        this._recording = false;
+    }
+
+    _updateRecIndicator() {
+        const el = this._recIndicator;
+        if (!el) return;
+        if (this._recording && this.gameMode === 'training') {
+            el.textContent = '🔴 GRABANDO';
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
     }
 
     start() {
@@ -317,17 +361,21 @@ GAMEPAD (Xbox 360):
         }
 
         // Spawn players
-        console.log('[Main] Spawning players');
-        this.player1.spawn(8, 8);
-        console.log('[Main] Player 1 spawned');
-
-        if (this.gameMode === 'coop') {
-            this.player2.spawn(10, 8);
+        if (this.gameMode === 'training') {
+            this.world.enableFlatMode(80);
+            this.player1.spawn(40, 38);
+            this.player2.spawn(40, 42);
             document.getElementById('viewport-p2').style.display = 'block';
         } else {
-            // Solo mode - hide player 2 viewport
-            document.getElementById('viewport-p2').style.display = 'none';
+            this.player1.spawn(8, 8);
+            if (this.isMultiplayer) {
+                this.player2.spawn(10, 8);
+                document.getElementById('viewport-p2').style.display = 'block';
+            } else {
+                document.getElementById('viewport-p2').style.display = 'none';
+            }
         }
+        console.log('[Main] Players spawned');
 
         // Initialize UI
         console.log('[Main] Initializing UI');
@@ -401,7 +449,7 @@ GAMEPAD (Xbox 360):
 
         // Update players
         this.player1.update(deltaTime);
-        if (this.gameMode === 'coop') {
+        if (this.isMultiplayer) {
             this.player2.update(deltaTime);
         }
 
@@ -412,7 +460,7 @@ GAMEPAD (Xbox 360):
             deltaTime,
             this.player1.isMoving
         );
-        if (this.gameMode === 'coop') {
+        if (this.isMultiplayer) {
             this.playerModel2.update(
                 this.player2.position,
                 this.player2.rotation,
@@ -430,9 +478,9 @@ GAMEPAD (Xbox 360):
         } else {
             this.camera1.layers.disable(1); // don't see own model
         }
-        if (this.gameMode === 'coop' && this.player2.cameraMode > 0) {
+        if (this.isMultiplayer && this.player2.cameraMode > 0) {
             this.camera2.layers.enable(2); // see own model
-        } else if (this.gameMode === 'coop') {
+        } else if (this.isMultiplayer) {
             this.camera2.layers.disable(2); // don't see own model
         }
 
@@ -488,7 +536,7 @@ GAMEPAD (Xbox 360):
         `;
 
         this.ui.updateDebugInfo(1, debugInfo1);
-        if (this.gameMode === 'coop') {
+        if (this.isMultiplayer) {
             this.ui.updateDebugInfo(2, debugInfo2);
         }
 
@@ -502,7 +550,7 @@ GAMEPAD (Xbox 360):
         const width = window.innerWidth;
         const height = window.innerHeight;
 
-        if (this.gameMode === 'coop') {
+        if (this.isMultiplayer) {
             // Split screen
             const halfWidth = width / 2;
             this.renderer.setScissorTest(true);
@@ -521,6 +569,40 @@ GAMEPAD (Xbox 360):
             this.renderer.setViewport(0, 0, width, height);
             this.renderer.setScissor(0, 0, width, height);
             this.renderer.render(this.scene, this.camera1);
+        }
+
+        // Update avatar models
+        for (const [, av] of this.avatarModels) {
+            if (av.group) {
+                av.group.position.set(av.x, av.y, av.z);
+                av.group.rotation.y = av.ry || 0;
+            }
+        }
+    }
+
+    updateAvatars(avatarList) {
+        const seen = new Set();
+        for (const a of avatarList) {
+            seen.add(a.id);
+                if (!this.avatarModels.has(a.id)) {
+                const cfg = {
+                    gender: 'male', skinColor: 0x4488cc, hairColor: 0x224466, hairStyle: 'short',
+                    eyeColor: 0x88ddff, shirtColor: 0x2266aa, pantsColor: 0x1a3355, shoeColor: 0x111122
+                };
+                const model = new PlayerModel(a.id, this.scene);
+                model.updateConfig(cfg);
+                if (a.id % 2 === 0 && model.light) model.light.intensity = 0;
+                this.avatarModels.set(a.id, { group: model.group, x: a.x, y: a.y, z: a.z, ry: a.ry || 0 });
+            } else {
+                const av = this.avatarModels.get(a.id);
+                av.x = a.x; av.y = a.y; av.z = a.z; av.ry = a.ry || 0;
+            }
+        }
+        for (const [id, av] of this.avatarModels) {
+            if (!seen.has(id)) {
+                this.scene.remove(av.group);
+                this.avatarModels.delete(id);
+            }
         }
     }
 }

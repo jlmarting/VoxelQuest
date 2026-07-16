@@ -17,6 +17,12 @@ class GameClient {
         this.pathfinder = new Pathfinder(game.world);
         this.follower = new PathFollower();
         this.pendingResponse = null;
+
+        // Grabador de episodios de entrenamiento
+        this._recording = false;
+        this._recordingScenario = null;
+        this._episodeFrames = null;
+        this._lastRecordedRotation = null;
     }
 
     update(deltaTime) {
@@ -483,9 +489,10 @@ class GameClient {
 
                 case 'gamepad_input': {
                     if (!player) { response.error = 'Player not found'; break; }
-                    const ok = this.game.gamepadHandler.setVirtualInput(player.id - 1, params.input || {});
-                    response.success = ok;
-                    if (!ok) response.error = 'Gamepad virtual no activado (usa gamepad_connect)';
+                    const idx = player.id - 1;
+                    this.game.gamepadHandler.enableVirtual(idx);
+                    this.game.gamepadHandler.setVirtualInput(idx, params.input || {});
+                    response.success = true;
                     break;
                 }
 
@@ -496,6 +503,11 @@ class GameClient {
                     break;
                 }
 
+                case 'avatar_update':
+                    if (this.game.updateAvatars) this.game.updateAvatars(params.avatars || []);
+                    response.success = true;
+                    break;
+
                 case 'console_command':
                     if (this.game.console && this.game.console.executeRemoteCommand) {
                         this.game.console.executeRemoteCommand(params.command);
@@ -505,6 +517,18 @@ class GameClient {
                     }
                     break;
 
+                case 'training_start': {
+                    this._startRecording(params.scenario || 'unnamed');
+                    response.success = true;
+                    response.scenario = params.scenario || 'unnamed';
+                    response.message = 'Recording started';
+                    break;
+                }
+                case 'training_stop': {
+                    const r = this._stopRecording(params.exito);
+                    Object.assign(response, r);
+                    break;
+                }
                 default:
                     response.error = 'Unknown method';
             }
@@ -610,12 +634,43 @@ class GameClient {
         const data = {
             type: 'bt_heartbeat',
             player_id: 2,
+            gameMode: this.game.gameMode,
             health: p2.health,
             position: { x: p2.position.x, y: p2.position.y, z: p2.position.z },
             rotation: { x: p2.rotation.x, y: p2.rotation.y },
             isFlying: p2.isFlying,
             p1_position: p1 ? { x: p1.position.x, y: p1.position.y, z: p1.position.z } : null
         };
+        // Sensorización del jugador
+        data.onGround = p2.onGround;
+
+        if (!this._posHistory) this._posHistory = [];
+        const posKey = Math.floor(p2.position.x) + ',' + Math.floor(p2.position.z);
+        this._posHistory.push(posKey);
+        if (this._posHistory.length > 20) this._posHistory.shift();
+        data.stuck = p2.isMoving && this._posHistory.length === 20 &&
+            this._posHistory.every(p => p === this._posHistory[0]);
+
+        const world = this.game.world;
+        const yaw = p2.rotation.y;
+        const frontX = Math.floor(p2.position.x + (-Math.sin(yaw)) * 1.0);
+        const frontZ = Math.floor(p2.position.z + (-Math.cos(yaw)) * 1.0);
+        const footY = Math.floor(p2.position.y) - 1;
+
+        const floorType = world.getBlock(Math.floor(p2.position.x), footY, Math.floor(p2.position.z));
+        data.bloque_bajo = (floorType !== BLOCK_TYPES.AIR && floorType !== BLOCK_TYPES.WATER) ? footY : -1;
+
+        let frenteAltura = 0;
+        for (let y = footY; y <= footY + 4; y++) {
+            if (y < 0 || y >= WORLD_HEIGHT) continue;
+            if (world.getBlock(frontX, y, frontZ) !== BLOCK_TYPES.AIR &&
+                world.getBlock(frontX, y, frontZ) !== BLOCK_TYPES.WATER) {
+                frenteAltura = y - footY;
+                break;
+            }
+        }
+        data.bloque_frente_altura = frenteAltura;
+
         if (this.game.enemyManager && this.game.enemyManager.enemies) {
             const enemies = this.game.enemyManager.enemies.map(e => ({
                 id: e.id,
@@ -634,7 +689,106 @@ class GameClient {
                 data.nearest_enemy = null;
             }
         }
+        if (this._recording) this._captureFrame();
         this.sendMessage(data);
+    }
+
+    // ---- Grabador de episodios de entrenamiento ----
+
+    _startRecording(scenario) {
+        this._recording = true;
+        this._recordingScenario = scenario;
+        this._episodeFrames = [];
+        this._lastRecordedRotation = null;
+        console.log('[Recorder] Start:', scenario);
+    }
+
+    _stopRecording(exito) {
+        if (!this._recording) return { success: false, message: 'Not recording' };
+        this._recording = false;
+        const frames = this._episodeFrames.length;
+        this._sendEpisode(exito);
+        return { success: true, frames, scenario: this._recordingScenario };
+    }
+
+    _captureFrame() {
+        const p2 = this.game.player2;
+        if (!p2) return;
+
+        const currentRot = { x: p2.rotation.x, y: p2.rotation.y };
+        let look = { x: 0, y: 0 };
+        if (this._lastRecordedRotation) {
+            const dy = currentRot.y - this._lastRecordedRotation.y;
+            const dx = currentRot.x - this._lastRecordedRotation.x;
+            const LOOK_FACTOR = 1 / (3 * 0.05 * 6);
+            look = { x: dy * LOOK_FACTOR, y: dx * LOOK_FACTOR };
+        }
+        this._lastRecordedRotation = currentRot;
+
+        let move, jump, fly, placeBlock, breakBlock;
+        const gh = this.game.gamepadHandler;
+        if (gh && gh.isConnected(p2.gamepadIndex)) {
+            const m = gh.getMovement(p2.gamepadIndex);
+            move = { x: m.x, z: m.z };
+            jump = m.jump;
+            fly = m.fly;
+            const actions = gh.getActions(p2.gamepadIndex);
+            placeBlock = actions.placeBlock;
+            breakBlock = actions.breakBlock;
+        } else {
+            move = { x: 0, z: 0 };
+            if (p2.keys['ArrowUp']) move.z -= 1;
+            if (p2.keys['ArrowDown']) move.z += 1;
+            if (p2.keys['ArrowLeft']) move.x -= 1;
+            if (p2.keys['ArrowRight']) move.x += 1;
+            if (move.x !== 0 && move.z !== 0) {
+                const len = Math.hypot(move.x, move.z);
+                move.x /= len; move.z /= len;
+            }
+            jump = p2.keys['NumpadEnter'] || false;
+            fly = p2.keys['ShiftRight'] || false;
+            placeBlock = false;
+            breakBlock = false;
+        }
+
+        const world = this.game.world;
+        const yaw = p2.rotation.y;
+        const footY = Math.floor(p2.position.y) - 1;
+        const frontX = Math.floor(p2.position.x + (-Math.sin(yaw)) * 1.0);
+        const frontZ = Math.floor(p2.position.z + (-Math.cos(yaw)) * 1.0);
+
+        let frenteAltura = 0;
+        for (let y = footY; y <= footY + 4; y++) {
+            if (y < 0 || y >= WORLD_HEIGHT) continue;
+            const bt = world.getBlock(frontX, y, frontZ);
+            if (bt !== BLOCK_TYPES.AIR && bt !== BLOCK_TYPES.WATER) {
+                frenteAltura = y - footY;
+                break;
+            }
+        }
+
+        const floorType = world.getBlock(Math.floor(p2.position.x), footY, Math.floor(p2.position.z));
+        const bloque_bajo = (floorType !== BLOCK_TYPES.AIR && floorType !== BLOCK_TYPES.WATER) ? footY : -1;
+
+        this._episodeFrames.push({
+            obs: {
+                position: { x: p2.position.x, y: p2.position.y, z: p2.position.z },
+                rotation: { x: p2.rotation.x, y: p2.rotation.y },
+                health: p2.health, onGround: p2.onGround, isFlying: p2.isFlying,
+                selectedSlot: p2.selectedSlot,
+                bloque_bajo, bloque_frente_altura: frenteAltura
+            },
+            action: { move, look, jump, fly, placeBlock, breakBlock }
+        });
+    }
+
+    _sendEpisode(exito) {
+        if (!this._episodeFrames || this._episodeFrames.length === 0) return;
+        const lines = this._episodeFrames.map(f => JSON.stringify(f)).join('\n');
+        const msg = JSON.stringify({ type: 'episode_save', scenario: this._recordingScenario, exito: !!exito, episode: lines });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(msg);
+        console.log('[Recorder] Sent', this._episodeFrames.length, 'frames');
+        this._episodeFrames = null;
     }
 
     sendMessage(data) {

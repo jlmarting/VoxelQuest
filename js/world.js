@@ -297,7 +297,38 @@ class Chunk {
         this.dirty = true;
     }
 
+    generateFlatTerrain() {
+        const fm = this.world.flatMode;
+        const size = fm.size;
+        const wx0 = this.x * CHUNK_SIZE;
+        const wz0 = this.z * CHUNK_SIZE;
+
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+            for (let z = 0; z < CHUNK_SIZE; z++) {
+                const wx = wx0 + x;
+                const wz = wz0 + z;
+
+                for (let y = 0; y < WORLD_HEIGHT; y++) {
+                    let blockType = BLOCK_TYPES.AIR;
+
+                    if (wx < 0 || wx >= size || wz < 0 || wz >= size) {
+                        if (y <= 3) blockType = BLOCK_TYPES.BEDROCK;
+                    } else {
+                        if (y === 0) blockType = BLOCK_TYPES.BEDROCK;
+                        else if (y === 1) blockType = BLOCK_TYPES.GRASS;
+                    }
+
+                    this.setBlock(x, y, z, blockType);
+                }
+            }
+        }
+    }
+
     generateTerrain(noise) {
+        if (this.world.flatMode) {
+            this.generateFlatTerrain();
+            return;
+        }
         for (let x = 0; x < CHUNK_SIZE; x++) {
             for (let z = 0; z < CHUNK_SIZE; z++) {
                 const worldX = this.x * CHUNK_SIZE + x;
@@ -429,6 +460,19 @@ class World {
         this.renderDistance = 4;
         this.atlas = new TextureAtlas();
         this.atlas.generate();
+        this.flatMode = null;
+    }
+
+    enableFlatMode(size) {
+        for (const [, c] of this.chunks) {
+            if (c.mesh) {
+                this.scene.remove(c.mesh);
+                c.mesh.geometry.dispose();
+                c.mesh.material.dispose();
+            }
+        }
+        this.chunks.clear();
+        this.flatMode = { size };
     }
 
     getChunkKey(x, z) { return `${x},${z}`; }

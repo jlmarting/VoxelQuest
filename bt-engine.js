@@ -161,9 +161,8 @@ class BTNode {
 
     const params = this.tree.resolveParams(this.config.parametros);
 
-    // Deduplicate RUNNING: same action + same params = still running
     const runningKey = this.config.tipo + '/' + JSON.stringify(params);
-    if (this.tree.runningAction === runningKey) {
+    if (this.tree.runningAction === runningKey && !actionFn.no_dedup) {
       return NODE_STATUS.RUNNING;
     }
 
@@ -183,6 +182,35 @@ function validateTreeSchema(json) {
 // Action catalog builder
 function createActionCatalog() {
   let lastTarget = null;
+  let waitCounters = {};
+
+  const gamepad = (params, relay) => {
+    relay('gamepad_input', { player_id: 2, input: params });
+    return NODE_STATUS.SUCCESS;
+  };
+  gamepad.no_dedup = true;
+
+  const mirar_a_p1_action = (params, relay, bb) => {
+    const dx = (bb.p1_x || 0) - (bb.self_x || 0);
+    const dz = (bb.p1_z || 0) - (bb.self_z || 0);
+    const targetYaw = Math.atan2(-dx, -dz);
+    const currentYaw = bb.self_rot_y || 0;
+    let diff = targetYaw - currentYaw;
+    if (diff > Math.PI) diff -= 2 * Math.PI;
+    if (diff < -Math.PI) diff += 2 * Math.PI;
+    relay('gamepad_input', { player_id: 2, input: { look: { x: Math.max(-1, Math.min(1, -diff * (params.velocidad || 0.08))), y: 0 } } });
+    return Math.abs(diff) < 0.05 ? NODE_STATUS.SUCCESS : NODE_STATUS.RUNNING;
+  };
+  mirar_a_p1_action.no_dedup = true;
+
+  const esperar_tics = (params) => {
+    const key = '_wait_' + JSON.stringify(params);
+    if (waitCounters[key] === undefined) waitCounters[key] = params.ticks || 1;
+    if (waitCounters[key] > 0) { waitCounters[key]--; return NODE_STATUS.RUNNING; }
+    delete waitCounters[key];
+    return NODE_STATUS.SUCCESS;
+  };
+  esperar_tics.no_dedup = true;
 
   return {
     seguir_a_p1: (params, relay, bb) => {
@@ -214,7 +242,10 @@ function createActionCatalog() {
       relay('navigate_to', { player_id: 2, x: targetX, z: targetZ });
       return NODE_STATUS.RUNNING;
     },
-    moverse_a: (params, relay) => {
+    moverse_a: (params, relay, bb) => {
+      const dx = (bb.self_x || 0) - params.x;
+      const dz = (bb.self_z || 0) - params.z;
+      if (Math.hypot(dx, dz) < 1.0) return NODE_STATUS.SUCCESS;
       relay('navigate_to', { player_id: 2, x: params.x, z: params.z });
       return NODE_STATUS.RUNNING;
     },
@@ -227,7 +258,80 @@ function createActionCatalog() {
       relay('select_slot', { player_id: 2, slot });
       return NODE_STATUS.SUCCESS;
     },
-    idle: () => NODE_STATUS.SUCCESS
+    idle: () => NODE_STATUS.SUCCESS,
+    mirar_a_p1: mirar_a_p1_action,
+
+    seleccionar_slot: (params, relay) => {
+      relay('select_slot', { player_id: 2, slot: params.slot || 0 });
+      return NODE_STATUS.SUCCESS;
+    },
+    colocar_bloque: (params, relay) => {
+      relay('gamepad_input', { player_id: 2, input: { placeBlock: true } });
+      return NODE_STATUS.SUCCESS;
+    },
+    soltar_colocacion: (params, relay) => {
+      relay('gamepad_input', { player_id: 2, input: { placeBlock: false } });
+      return NODE_STATUS.SUCCESS;
+    },
+    romper_bloque: (params, relay) => {
+      relay('gamepad_input', { player_id: 2, input: { breakBlock: true } });
+      return NODE_STATUS.SUCCESS;
+    },
+    gamepad,
+    esperar_tics,
+
+    vagar: ((params, relay, bb) => {
+      const key = '_vagar_';
+      let tx = bb[key + 'tx'];
+      let tz = bb[key + 'tz'];
+      if (tx === undefined || tz === undefined) {
+        let sx = bb.self_x || 40;
+        let sz = bb.self_z || 40;
+        do {
+          tx = 5 + Math.floor(Math.random() * 70);
+          tz = 5 + Math.floor(Math.random() * 70);
+        } while (Math.hypot(tx - sx, tz - sz) < 10);
+        bb[key + 'tx'] = tx;
+        bb[key + 'tz'] = tz;
+      }
+      const dist = Math.hypot(tx - (bb.self_x || 0), tz - (bb.self_z || 0));
+      if (dist < 3.0) {
+        delete bb[key + 'tx'];
+        delete bb[key + 'tz'];
+        return NODE_STATUS.SUCCESS;
+      }
+      relay('navigate_to', { player_id: 2, x: tx, z: tz });
+      return NODE_STATUS.RUNNING;
+    }),
+
+    huir: (params, relay, bb) => {
+      if (!bb.hay_enemigos_cerca || !bb.target_enemigo_x) return NODE_STATUS.FAILURE;
+      const dx = bb.self_x - bb.target_enemigo_x;
+      const dz = bb.self_z - bb.target_enemigo_z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.1) return NODE_STATUS.FAILURE;
+      const speed = params.velocidad || -1;
+      relay('gamepad_input', {
+        player_id: 2,
+        input: { move: { x: (dx / dist) * speed, z: (dz / dist) * speed }, jump: false }
+      });
+      return NODE_STATUS.SUCCESS;
+    },
+
+    construir_muro: (params, relay) => {
+      const baseX = params.x || 40;
+      const baseZ = params.z || 39;
+      const ancho = params.ancho || 3;
+      const alto = params.alto || 3;
+      const tipo = params.tipo_bloque || 1;
+      const yBase = 2;
+      const blocks = [];
+      for (let dx = 0; dx < ancho; dx++)
+        for (let dy = 0; dy < alto; dy++)
+          blocks.push({ x: baseX + dx, y: yBase + dy, z: baseZ, type: tipo });
+      relay('set_blocks', { blocks });
+      return NODE_STATUS.SUCCESS;
+    }
   };
 }
 

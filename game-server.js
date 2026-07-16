@@ -38,9 +38,11 @@ let gameState = {
     dayNight: null,
     running: false,
     seed: null,
+    mode: null, // 'solo', 'coop' o 'training'
     // Configuración de aprobación
     approvalMode: 'auto', // 'auto' o 'human'
-    pendingApprovals: []
+    pendingApprovals: [],
+    enemies: []
 };
 
 // IDs de jugadores
@@ -86,6 +88,140 @@ let gameClients = [];
 // ---- Behavior Tree Engine ----
 let btEngine = null;
 let btInterval = null;
+let avatarFollowInterval = null;
+
+let avatarFormation = {};
+let avatarBreakTargets = {};
+let avatarBreakCooldown = {};
+
+function startAvatarFollow() {
+    if (avatarFollowInterval) return;
+    log('[Avatares] En formación con P2');
+
+    // Asignar offset de formación a cada avatar
+    const assignFormation = () => {
+        const avs = Object.entries(gameState.players).filter(([id]) => id >= 3);
+        avs.forEach(([id], idx) => {
+            if (!avatarFormation[id]) {
+                const row = Math.floor(idx / 5);
+                const col = idx % 5;
+                avatarFormation[id] = { ox: (col - 2) * 2, oz: 3 + row * 2 };
+            }
+        });
+    };
+    assignFormation();
+
+    avatarFollowInterval = setInterval(() => {
+        const p2 = gameState.players[2];
+        if (!p2 || !p2.position) return;
+        const speed = 0.2;
+        const repulsion = 0.15;
+        const minDist = 1.8;
+
+        const aiAvatars = Object.entries(gameState.players).filter(([id]) => id >= 3);
+        const enemies = gameState.enemies || [];
+        assignFormation();
+
+        // Encontrar enemigo más cercano a P2
+        let targetEnemy = null;
+        let minEnemyDist = Infinity;
+        const attackRange = 8.0;
+        enemies.forEach(e => {
+            const d = Math.hypot(e.x - p2.position.x, e.z - p2.position.z);
+            if (d < minEnemyDist) { minEnemyDist = d; targetEnemy = e; }
+        });
+
+        aiAvatars.forEach(([id, p]) => {
+            if (!p.position) return;
+            const off = avatarFormation[id];
+            let moveX = 0, moveZ = 0;
+
+            // Buscar y atacar monstruos (prioritario)
+            let enemyTarget = null;
+            let enemyDist = Infinity;
+            enemies.forEach(e => {
+                const d = Math.hypot(e.x - p.position.x, e.z - p.position.z);
+                if (d < enemyDist) { enemyDist = d; enemyTarget = e; }
+            });
+
+            if (enemyTarget) {
+                const dx = enemyTarget.x - p.position.x;
+                const dz = enemyTarget.z - p.position.z;
+                const d = Math.hypot(dx, dz);
+                if (d > 0.8) { moveX = (dx/d) * 0.35; moveZ = (dz/d) * 0.35; }
+            } else {
+                const targetX = p2.position.x + off.ox;
+                const targetZ = p2.position.z + off.oz;
+                const dx = targetX - p.position.x;
+                const dz = targetZ - p.position.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist > 0.3) {
+                    moveX = (dx / dist) * speed;
+                    moveZ = (dz / dist) * speed;
+                }
+            }
+
+            // Repulsión entre avatares
+            aiAvatars.forEach(([oid, other]) => {
+                if (oid === id || !other.position) return;
+                const rx = p.position.x - other.position.x;
+                const rz = p.position.z - other.position.z;
+                const rd = Math.hypot(rx, rz);
+                if (rd < minDist && rd > 0.01) {
+                    moveX += (rx / rd) * repulsion;
+                    moveZ += (rz / rd) * repulsion;
+                }
+            });
+
+            p.position.x += moveX;
+            p.position.z += moveZ;
+        });
+
+        const p2yaw = p2.rotation ? p2.rotation.y : 0;
+        // Romper construcciones (rápido y a distancia)
+        const now = Date.now();
+        const occupied = new Set();
+        aiAvatars.forEach(([id, p]) => {
+            if (!p.position || !avatarBreakTargets[id]) return;
+            occupied.add(avatarBreakTargets[id].x + ',' + avatarBreakTargets[id].y + ',' + avatarBreakTargets[id].z);
+        });
+        aiAvatars.forEach(([id, p]) => {
+            if (!p.position) return;
+            if ((avatarBreakCooldown[id] || 0) > now) return;
+            const tgt = avatarBreakTargets[id];
+            if (tgt) {
+                sendToGame({ method: 'break_block', params: { x: tgt.x, y: tgt.y, z: tgt.z } });
+                delete avatarBreakTargets[id];
+                avatarBreakCooldown[id] = now + 30;
+                return;
+            }
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const bx = Math.floor(p.position.x + (Math.random() - 0.5) * 20);
+                const by = 2 + Math.floor(Math.random() * 20);
+                const bz = Math.floor(p.position.z + (Math.random() - 0.5) * 20);
+                const key = bx + ',' + by + ',' + bz;
+                if (!occupied.has(key)) {
+                    avatarBreakTargets[id] = { x: bx, y: by, z: bz };
+                    occupied.add(key);
+                    break;
+                }
+            }
+        });
+
+        const avatars = aiAvatars.map(([id, p]) => ({ id: parseInt(id), x: p.position.x, y: p.position.y, z: p.position.z, ry: p2yaw }));
+        if (avatars.length > 0) {
+            sendToGame({ id: 'av_' + Date.now(), method: 'avatar_update', params: { avatars } });
+        }
+    }, 100);
+}
+
+function stopAvatarFollow() {
+    if (avatarFollowInterval) {
+        clearInterval(avatarFollowInterval);
+        avatarFollowInterval = null;
+        log('[Avatares] Dejaron de seguir');
+    }
+}
 
 const btBlackboard = {
     self_vida: 20,
@@ -97,7 +233,13 @@ const btBlackboard = {
     target_enemigo_id: null,
     target_enemigo_x: 0,
     target_enemigo_z: 0,
-    hay_enemigos_cerca: false
+    hay_enemigos_cerca: false,
+    // Sensores entrenamiento
+    onGround: true,
+    stuck: false,
+    bloque_bajo: -1,
+    bloque_frente_altura: 0,
+    self_rot_y: 0
 };
 
 function btRelay(method, params) {
@@ -550,6 +692,18 @@ const mcpHandlers = {
         colors: AVATAR_COLORS
     })),
 
+    // ---- UTILIDAD ----
+    teleport: tool('Teletransportar un jugador a coordenadas (x,y,z)', {
+        player_id: { type: 'integer', required: true },
+        x: { type: 'number', required: true }, y: { type: 'number' }, z: { type: 'number', required: true }
+    }, withPlayer(async (params, player) => {
+        if (params.player_id >= 3) {
+            player.position = { x: params.x, y: params.y || 2, z: params.z };
+            return { success: true, position: player.position };
+        }
+        return relayToGame('teleport', { player_id: params.player_id, x: params.x, y: params.y || 2, z: params.z });
+    })),
+
     // ---- COMBATE ----
     attack: tool('Atacar al enemigo más cercano en cono de 90°', {
         player_id: { type: 'integer', required: true }, target_id: { type: 'integer' }
@@ -612,7 +766,57 @@ const mcpHandlers = {
         stopBtTick();
         btEngine = null;
         return { success: true, message: 'Behavior tree engine stopped' };
-    })
+    }),
+
+    // ---- AVATARES ----
+    avatar_walk: tool('Mover un avatar paso a paso (dirección: north/south/east/west)', {
+        player_id: { type: 'integer', required: true },
+        direction: { type: 'string', required: true, enum: ['north', 'south', 'east', 'west'] },
+        steps: { type: 'number' }
+    }, withPlayer(async (params, player) => {
+        const steps = params.steps || 1;
+        const dirs = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+        const [dx, dz] = dirs[params.direction] || [0, 0];
+        player.position.x += dx * steps;
+        player.position.z += dz * steps;
+        return { success: true, walked: steps, direction: params.direction,
+                 position: { x: player.position.x, y: player.position.y, z: player.position.z } };
+    })),
+
+    avatars_clear: tool('Eliminar todos los avatares IA', {}, async () => {
+        const removed = Object.keys(gameState.players).filter(id => id >= 3).length;
+        Object.keys(gameState.players).forEach(id => { if (id >= 3) delete gameState.players[id]; });
+        stopAvatarFollow();
+        return { success: true, removed };
+    }),
+
+    avatars_follow: tool('Avatares IA siguen a P2', {
+        activar: { type: 'boolean', description: 'true=activar, false=detener' }
+    }, async (params) => {
+        if (params.activar !== false) {
+            startAvatarFollow();
+            return { success: true, message: 'Avatares siguiendo a P2' };
+        } else {
+            stopAvatarFollow();
+            return { success: true, message: 'Avatares detenidos' };
+        }
+    }),
+
+    get_avatars: tool('Obtener lista de avatares IA con sus posiciones', {}, async () => {
+        const avatars = Object.entries(gameState.players)
+            .filter(([id]) => id >= 3)
+            .map(([id, p]) => ({ id: parseInt(id), x: p.position.x, y: p.position.y, z: p.position.z }));
+        return { avatars };
+    }),
+
+    // ---- ENTRENAMIENTO ----
+    training_start: tool('Iniciar grabación de episodio de entrenamiento (BC)', {
+        scenario: { type: 'string', required: true, description: 'Nombre del escenario (ej: subir_escalera)' }
+    }, async (params) => relayToGame('training_start', params, 3600000)),
+
+    training_stop: tool('Detener grabación de episodio de entrenamiento', {
+        exito: { type: 'boolean', description: 'Si la demostración fue exitosa' }
+    }, async (params) => relayToGame('training_stop', params, 60000))
 };
 
 // Función auxiliar para crear avatar
@@ -624,7 +828,7 @@ function createAvatar(params) {
         name: name || `IA_${id}`,
         isAI: true,
         gender: gender || 'male',
-        position: { x: spawnX || 0, y: 30, z: spawnZ || 0 },
+        position: { x: spawnX || 0, y: 2, z: spawnZ || 0 },
         rotation: { x: 0, y: 0 },
         health: 20,
         onGround: false,
@@ -883,6 +1087,7 @@ wss.on('connection', (ws) => {
 
                 if (data.state.entities) {
                     const enemies = data.state.entities.filter(e => e.type === 'enemy');
+                    gameState.enemies = enemies.map(e => ({ x: e.position.x, z: e.position.z, id: e.id }));
                     const nearest = enemies.sort((a, b) => a.distance - b.distance)[0];
                     btBlackboard.hay_enemigos_cerca = enemies.length > 0;
                     if (nearest) {
@@ -895,6 +1100,7 @@ wss.on('connection', (ws) => {
 
             // Heartbeat ligero para BT (10Hz)
             if (data.type === 'bt_heartbeat') {
+                if (data.gameMode) gameState.mode = data.gameMode;
                 const p2 = gameState.players[2];
                 if (p2) {
                     if (data.position) p2.position = data.position;
@@ -908,6 +1114,19 @@ wss.on('connection', (ws) => {
                     btBlackboard.p1_z = data.p1_position.z;
                     btBlackboard.p1_y = data.p1_position.y;
                 }
+                // Sensores del jugador
+                if (data.onGround !== undefined) btBlackboard.onGround = data.onGround;
+                if (data.stuck !== undefined) btBlackboard.stuck = data.stuck;
+                if (data.rotation) btBlackboard.self_rot_y = data.rotation.y;
+                // Enviar avatares al navegador junto al heartbeat
+                const avs = Object.entries(gameState.players)
+                    .filter(([id]) => id >= 3)
+                    .map(([id, p]) => ({ id: parseInt(id), x: p.position.x, y: p.position.y, z: p.position.z }));
+                if (avs.length > 0) {
+                    ws.send(JSON.stringify({ method: 'avatar_update', params: { avatars: avs } }));
+                }
+                if (data.bloque_bajo !== undefined) btBlackboard.bloque_bajo = data.bloque_bajo;
+                if (data.bloque_frente_altura !== undefined) btBlackboard.bloque_frente_altura = data.bloque_frente_altura;
                 if (data.nearest_enemy) {
                     btBlackboard.hay_enemigos_cerca = true;
                     btBlackboard.target_enemigo_id = data.nearest_enemy.id;
@@ -916,6 +1135,16 @@ wss.on('connection', (ws) => {
                 } else {
                     btBlackboard.hay_enemigos_cerca = false;
                 }
+            }
+
+            // ---- Episodio de entrenamiento ----
+            if (data.type === 'episode_save') {
+                const scenario = data.scenario || 'unknown';
+                const dir = path.join(__dirname, 'training', 'episodes', scenario);
+                try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+                const filename = Date.now() + '.jsonl';
+                fs.writeFileSync(path.join(dir, filename), data.episode || '');
+                log(`[Training] Episodio guardado: ${scenario}/${filename} (${data.episode?.split('\n').length || 0} frames)`);
             }
         } catch (e) {
             // Silently ignore parse errors from game
