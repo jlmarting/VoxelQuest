@@ -8,24 +8,27 @@ release boundary).
 
 ## [Unreleased]
 
-### Changed — Separación de responsabilidades: game-server.js + mcp-server.js
-- `voxelquest-server.js` → `game-server.js` (juego + API, sin MCP/stdio/SSE)
-- `mcp-bridge.js` eliminado — reemplazado por `mcp-server.js` (adaptador MCP puro con stdio nativo vía `@modelcontextprotocol/sdk`)
-- `mcp-server.js` es un cliente WebSocket del game server, sin lógica de tools ni estado
-- El game server acepta clientes API WebSocket (JSON-RPC 2.0) además del navegador
-- SSE endpoint eliminado del game server
+### Added
+- add follow-p1-distance script and gothic cathedral builder
+- sistema de aprendizaje de habilidades + avatares + construcciones
+- add seguir_a_p1 action and bt_load_follow preset
+- Phase 4 integration - heartbeat sync, bt_load_example, docs
+- add Behavior Tree engine in Node.js (Phase 3)
+- add A* pathfinding and path follower (Phase 2)
+- add melee combat system with cone detection (Phase 1)
+- Add update_changelog.py script and update CHANGELOG
+- Add CHANGELOG.md following Keep a Changelog format
+- Add virtual gamepad relay and autonomous chase/evade scripts
 
-### Removed
-- `voxelquest-server.js`, `mcp-bridge.js`, `mcp-ws.js`, `mcp-full.js`, `mcp-test.js`: todos eliminados
+### Changed
+- separar game-server de mcp-server, gamepad-only movement
+- create documentation structure with ADRs and phase tracking
+- Initial commit: VoxelQuest base game with MCP server
+- add CHANGELOG.md and update with recent commits
+- Enhance evade_chase with direct wall breaking and teleport escape
 
-### Earlier in this release
-- Helpers MCP: `tool(desc, schema, fn)`, `withPlayer(fn)`, `buildSchema(inputSchema)`
-- `mcpToolDefinitions` se auto-genera desde `mcpHandlers`
-- Todos los handlers refactorizados con `tool()` y `withPlayer()`
-- Todos los `console.log` reemplazados por `log()` (stderr)
-- Movimiento del P2 limitado a gamepad virtual: eliminados `move_player`, `teleport`,
-  `move_relative`, `move_burst`, `jump`, `fly_up`, `fly_down`, `toggle_fly`
-- README expandido con documentación completa de arquitectura y API
+### Fixed
+- move EnemyManager.nextEnemyId after class definition
 ## [48337cd] — 2026-07-14
 
 ### Added
