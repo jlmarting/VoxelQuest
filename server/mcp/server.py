@@ -107,6 +107,25 @@ class McpServer:
                     "required": ["player_id"],
                 },
             },
+            {
+                "name": "bt_load",
+                "description": "Carga un árbol de comportamiento JSON",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"tree": {"type": "object"}},
+                    "required": ["tree"],
+                },
+            },
+            {
+                "name": "bt_status",
+                "description": "Obtiene estado del árbol de comportamiento",
+                "inputSchema": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "bt_stop",
+                "description": "Detiene el árbol de comportamiento",
+                "inputSchema": {"type": "object", "properties": {}},
+            },
         ]
 
     async def handle(self, request: dict) -> dict | None:
@@ -228,6 +247,32 @@ class McpServer:
         if "pitch" in args:
             player.rotation.x = max(-math.pi / 2 + 0.1, min(math.pi / 2 - 0.1, float(args["pitch"])))
         return {"success": True, "rotation": player.rotation.to_dict()}
+
+    async def tool_bt_load(self, args: dict) -> dict:
+        from server.bt.engine import BehaviorTree, create_action_catalog
+
+        tree_json = args.get("tree")
+        if not tree_json:
+            raise McpError(-32602, "tree required")
+        catalog = create_action_catalog(self.game_loop)
+        bt = BehaviorTree(tree_json, catalog, self.game_loop.blackboard)
+        if bt.error:
+            raise McpError(-32602, bt.error)
+        self.game_loop.bt_engine = bt
+        return {"success": True, "message": "Behavior tree loaded"}
+
+    async def tool_bt_status(self, args: dict) -> dict:
+        bt = self.game_loop.bt_engine
+        return {
+            "running": bt is not None,
+            "error": bt.error if bt else None,
+            "last_result": bt.last_result.value if bt and bt.last_result else None,
+            "blackboard": self.game_loop.blackboard,
+        }
+
+    async def tool_bt_stop(self, args: dict) -> dict:
+        self.game_loop.bt_engine = None
+        return {"success": True, "message": "Behavior tree stopped"}
 
     def _result(self, req_id: Any, result: Any) -> dict:
         return {"jsonrpc": "2.0", "id": req_id, "content": [{"type": "text", "text": json.dumps(result)}]}

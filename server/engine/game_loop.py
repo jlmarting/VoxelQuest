@@ -32,6 +32,11 @@ class GameLoop:
         self.day_time = 0.5  # 0.0 = amanecer, 0.5 = mediodía
         self.day_duration = 300.0  # segundos por ciclo completo
 
+        # Blackboard para Behavior Trees
+        self.blackboard: dict = {}
+        self.bt_engine: Any = None
+        self._pending_events: list[dict] = []
+
     @property
     def is_night(self) -> bool:
         return self.day_time < 0.2 or self.day_time > 0.8
@@ -50,6 +55,41 @@ class GameLoop:
 
     def get_player(self, player_id: int) -> Player | None:
         return self.players.get(player_id)
+
+    def update_blackboard(self) -> None:
+        """Actualiza blackboard con datos del jugador 2 (IA por defecto)."""
+        p2 = self.players.get(2)
+        p1 = self.players.get(1)
+        self.blackboard.update(
+            {
+                "self_vida": p2.health if p2 else 20,
+                "self_x": p2.position.x if p2 else 0,
+                "self_y": p2.position.y if p2 else 0,
+                "self_z": p2.position.z if p2 else 0,
+                "self_rot_y": p2.rotation.y if p2 else 0,
+                "p1_x": p1.position.x if p1 else 0,
+                "p1_y": p1.position.y if p1 else 0,
+                "p1_z": p1.position.z if p1 else 0,
+                "hay_enemigos_cerca": False,
+                "target_enemigo_id": None,
+                "target_enemigo_x": None,
+                "target_enemigo_z": None,
+                "on_ground": p2.on_ground if p2 else True,
+            }
+        )
+        if p2 and self.enemy_manager.enemies:
+            nearest = None
+            nearest_dist = float("inf")
+            for enemy in self.enemy_manager.enemies:
+                dist = ((enemy.position.x - p2.position.x) ** 2 + (enemy.position.z - p2.position.z) ** 2) ** 0.5
+                if dist < nearest_dist:
+                    nearest_dist = dist
+                    nearest = enemy
+            if nearest and nearest_dist < 20:
+                self.blackboard["hay_enemigos_cerca"] = True
+                self.blackboard["target_enemigo_id"] = nearest.id
+                self.blackboard["target_enemigo_x"] = nearest.position.x
+                self.blackboard["target_enemigo_z"] = nearest.position.z
 
     def tick(self) -> None:
         now = time.time()
@@ -73,10 +113,16 @@ class GameLoop:
         for player in self.players.values():
             self.world.update_around(player.position.x, player.position.z)
 
+        # Behavior Tree
+        self.update_blackboard()
+        if self.bt_engine:
+            self.bt_engine.tick()
+
         # Enviar estado a suscriptores
         if self.on_state_update:
             state = self._build_state()
-            state["events"] = enemy_events + falling_events
+            state["events"] = enemy_events + falling_events + self._pending_events
+            self._pending_events = []
             self.on_state_update(state)
 
     def _build_state(self) -> dict:
