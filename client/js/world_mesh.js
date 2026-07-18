@@ -1,6 +1,5 @@
 /**
- * Renderizado de chunks recibidos del servidor.
- * Construye/actualiza meshes de Three.js a partir de estado delta.
+ * Renderizado de chunks, jugadores y enemigos recibidos del servidor.
  */
 
 const BLOCK_COLORS = {
@@ -20,14 +19,34 @@ const BLOCK_COLORS = {
 class WorldMesh {
     constructor(scene) {
         this.scene = scene;
-        this.chunks = new Map(); // key 'cx,cz' -> mesh
+        this.chunks = new Map();
         this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this.playerMeshes = new Map();
+        this.enemyMeshes = new Map();
     }
 
     updateFromState(state) {
         const deltas = state.chunk_deltas || {};
         for (const [key, delta] of Object.entries(deltas)) {
             this.updateChunk(key, delta.modified || []);
+        }
+
+        const players = state.players || {};
+        for (const [pid, p] of Object.entries(players)) {
+            this.updatePlayer(pid, p);
+        }
+
+        const enemies = state.enemies || [];
+        const seenEnemies = new Set();
+        for (const e of enemies) {
+            this.updateEnemy(e);
+            seenEnemies.add(String(e.id));
+        }
+        for (const [id, mesh] of this.enemyMeshes.entries()) {
+            if (!seenEnemies.has(id)) {
+                this.scene.remove(mesh);
+                this.enemyMeshes.delete(id);
+            }
         }
     }
 
@@ -63,6 +82,39 @@ class WorldMesh {
 
         this.scene.add(instanced);
         this.chunks.set(key, instanced);
+    }
+
+    updatePlayer(id, p) {
+        if (!this.playerMeshes.has(id)) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, 1.8, 0.6),
+                new THREE.MeshStandardMaterial({ color: id === '1' ? 0x2266cc : 0xcc4444 })
+            );
+            body.position.y = 0.9;
+            group.add(body);
+            this.scene.add(group);
+            this.playerMeshes.set(id, group);
+        }
+        const mesh = this.playerMeshes.get(id);
+        mesh.position.set(p.x, p.y, p.z);
+        mesh.rotation.y = p.ry || 0;
+    }
+
+    updateEnemy(e) {
+        const id = String(e.id);
+        if (!this.enemyMeshes.has(id)) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, e.type === 'CREEPER' ? 1.5 : 1.8, 0.6),
+                new THREE.MeshStandardMaterial({ color: 0x2d5a27 })
+            );
+            mesh.position.y = (e.type === 'CREEPER' ? 1.5 : 1.8) / 2;
+            this.scene.add(mesh);
+            this.enemyMeshes.set(id, mesh);
+        }
+        const mesh = this.enemyMeshes.get(id);
+        mesh.position.x = e.x;
+        mesh.position.z = e.z;
     }
 
     clear() {

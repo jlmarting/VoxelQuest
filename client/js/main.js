@@ -1,34 +1,57 @@
 /**
- * Cliente mínimo de VoxelQuest conectado al servidor Python.
+ * Cliente de VoxelQuest conectado al servidor Python.
+ * Soporta modo solo y split-screen coop.
  */
 
 const WS_URL = `ws://${window.location.hostname || 'localhost'}:9002/ws`;
 
 class ClientGame {
-    constructor() {
-        this.client = new GameClient();
-        this.input = new InputHandler(this.client);
+    constructor(mode = 'solo') {
+        this.mode = mode;
+        this.clients = [];
+        this.inputs = [];
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x87CEEB);
         this.clock = new THREE.Clock();
-
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         document.body.appendChild(this.renderer.domElement);
 
+        // Cámaras: una por jugador local
+        this.cameras = [
+            new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000),
+            new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+        ];
+
         this.worldMesh = new WorldMesh(this.scene);
-        this.playerMesh = null;
-        this.targetPlayerState = null;
+        this.targetStates = [null, null];
 
         this.setupLights();
         this.setupEventListeners();
 
-        this.client.onWelcome = (data) => this.onWelcome(data);
-        this.client.onState = (state) => this.onState(state);
+        // Crear clientes según modo
+        if (mode === 'coop') {
+            this.addLocalPlayer(1, new InputHandler(null));
+            this.addLocalPlayer(2, new InputHandler(null));
+            this.inputs[1].keys = {}; // placeholder: P2 usaría otro input set
+            document.getElementById('mode').textContent = 'Modo: 2 Jugadores Split Screen';
+        } else {
+            this.addLocalPlayer(1, new InputHandler(null));
+            document.getElementById('mode').textContent = 'Modo: Solitario';
+        }
+    }
+
+    addLocalPlayer(playerId, inputHandler) {
+        const client = new GameClient();
+        client.onWelcome = (data) => this.onWelcome(data, playerId);
+        client.onState = (state) => this.onState(state);
+        // input handler real asociado a este jugador
+        const input = new InputHandler(client);
+        this.clients[playerId - 1] = client;
+        this.inputs[playerId - 1] = input;
     }
 
     setupLights() {
@@ -43,70 +66,110 @@ class ClientGame {
 
     setupEventListeners() {
         window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            if (this.mode === 'coop') {
+                this.cameras[0].aspect = width / (2 * height);
+                this.cameras[1].aspect = width / (2 * height);
+            } else {
+                this.cameras[0].aspect = width / height;
+            }
+            this.cameras[0].updateProjectionMatrix();
+            this.cameras[1].updateProjectionMatrix();
+            this.renderer.setSize(width, height);
         });
     }
 
-    onWelcome(data) {
-        document.getElementById('loading').style.display = 'none';
-        console.log('[Client] Welcome:', data);
+
+
+    onWelcome(data, playerId) {
+        console.log('[Client] Welcome player', playerId, data);
+        if (playerId === 1) {
+            document.getElementById('loading').style.display = 'none';
+        }
     }
 
     onState(state) {
         this.worldMesh.updateFromState(state);
 
-        const pid = String(this.client.playerId);
+        const p1 = state.players['1'];
+        const p2 = state.players['2'];
+        this.targetStates[0] = p1 || null;
+        this.targetStates[1] = p2 || null;
+
+        const pid = String(this.clients[0].playerId);
         const p = state.players[pid];
         if (p) {
-            this.targetPlayerState = p;
             document.getElementById('pos').textContent =
                 `Pos: ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`;
         }
     }
 
-    updateCamera() {
-        if (!this.targetPlayerState) return;
+    updateCameras() {
+        for (let i = 0; i < this.cameras.length; i++) {
+            const target = this.targetStates[i];
+            if (!target) continue;
+            const cam = this.cameras[i];
 
-        // Interpolación simple hacia la posición objetivo
-        const target = this.targetPlayerState;
-        const t = 0.3;
-        this.camera.position.x += (target.x - this.camera.position.x) * t;
-        this.camera.position.y += ((target.y + 1.6) - this.camera.position.y) * t;
-        this.camera.position.z += (target.z - this.camera.position.z) * t;
+            cam.position.x += (target.x - cam.position.x) * 0.3;
+            cam.position.y += ((target.y + 1.6) - cam.position.y) * 0.3;
+            cam.position.z += (target.z - cam.position.z) * 0.3;
 
-        const ry = target.ry || 0;
-        const rx = target.rx || 0;
-        const dir = new THREE.Vector3(
-            -Math.sin(ry) * Math.cos(rx),
-            -Math.sin(rx),
-            -Math.cos(ry) * Math.cos(rx)
-        );
-        this.camera.lookAt(
-            this.camera.position.x + dir.x,
-            this.camera.position.y + dir.y,
-            this.camera.position.z + dir.z
-        );
+            const ry = target.ry || 0;
+            const rx = target.rx || 0;
+            const dir = new THREE.Vector3(
+                -Math.sin(ry) * Math.cos(rx),
+                -Math.sin(rx),
+                -Math.cos(ry) * Math.cos(rx)
+            );
+            cam.lookAt(cam.position.x + dir.x, cam.position.y + dir.y, cam.position.z + dir.z);
+        }
+    }
+
+    render() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        if (this.mode === 'coop') {
+            const halfWidth = width / 2;
+            this.renderer.setScissorTest(true);
+
+            this.renderer.setViewport(0, 0, halfWidth, height);
+            this.renderer.setScissor(0, 0, halfWidth, height);
+            this.renderer.render(this.scene, this.cameras[0]);
+
+            this.renderer.setViewport(halfWidth, 0, halfWidth, height);
+            this.renderer.setScissor(halfWidth, 0, halfWidth, height);
+            this.renderer.render(this.scene, this.cameras[1]);
+
+            this.renderer.setScissorTest(false);
+        } else {
+            this.renderer.setViewport(0, 0, width, height);
+            this.renderer.render(this.scene, this.cameras[0]);
+        }
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
 
-        if (this.client.connected) {
-            const input = this.input.buildInput();
-            this.client.sendInput(input);
+        for (let i = 0; i < this.clients.length; i++) {
+            const client = this.clients[i];
+            const input = this.inputs[i];
+            if (client && client.connected && input) {
+                client.sendInput(input.buildInput());
+            }
         }
 
-        this.updateCamera();
-        this.renderer.render(this.scene, this.camera);
+        this.updateCameras();
+        this.render();
 
-        document.getElementById('fps').textContent = `FPS: ${Math.round(1 / this.clock.getDelta())}`;
+        const fps = Math.round(1 / this.clock.getDelta());
+        document.getElementById('fps').textContent = `FPS: ${fps}`;
     }
 
     async start() {
         try {
-            await this.client.connect(WS_URL);
+            await Promise.all(this.clients.filter(c => c).map(c => c.connect(WS_URL)));
             this.animate();
         } catch (err) {
             console.error('[Client] No se pudo conectar:', err);
@@ -115,7 +178,10 @@ class ClientGame {
     }
 }
 
-window.addEventListener('load', () => {
-    const game = new ClientGame();
+
+function startGame(mode) {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+    const game = new ClientGame(mode);
     game.start();
-});
+}
