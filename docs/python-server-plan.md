@@ -12,6 +12,7 @@
 2. Exponer el juego como servidor Web MCP para que cualquier cliente (opencode, scripts Python, dashboards) pueda conectarse.
 3. Reducir el cliente web a un renderizador ligero de Three.js + input humano.
 4. Facilitar el entrenamiento de agentes, tests de regresión y reproducibilidad.
+5. Preservar el modo split-screen local (`coop`) y habilitar un futuro coop remoto.
 
 ---
 
@@ -22,6 +23,7 @@
 - Se pueden ejecutar tests del motor (pathfinding, física, combate) sin abrir navegador.
 - El servidor puede correr headless y aceptar conexiones de agentes.
 - El renderizado se mantiene fluido (≥30 FPS) con interpolación básica.
+- El modo `coop` sigue siendo split-screen local por defecto (servidor en `localhost`).
 
 ---
 
@@ -75,7 +77,8 @@
 - `server/engine/`: world, physics, entities, navigation, enemy_ai, game_loop.
 - `server/websocket/game.py`: protocolo de estado e input.
 - Cliente web adaptado para recibir estado y enviar input (`js/server-client.js`).
-- Scripts `run-python-server.sh` y `run-node-server.sh`.
+- Script `run.sh` que arranque servidor Python y sirva cliente web automáticamente.
+- Scripts `run-python-server.sh` y `run-node-server.sh` (transición).
 
 **Punto de no retorno:** el juego debe ser jugable básicamente contra el servidor Python.
 

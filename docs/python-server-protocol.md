@@ -487,6 +487,7 @@ Cada tupla es `[x, y, z, type]`. Coordenadas absolutas del mundo.
 - El game loop debe correr en una tarea aparte, a 20 Hz fijo.
 - El WebSocket solo reenvía el estado acumulado en cada tick; no corre física.
 - Las tools MCP mutan el estado del servidor; el game loop las aplica en el siguiente tick.
+- Para juego local, el servidor arranca automáticamente en `localhost` (ver `run.sh`).
 
 ### 7.2 En el cliente
 
@@ -494,6 +495,7 @@ Cada tupla es `[x, y, z, type]`. Coordenadas absolutas del mundo.
 - Guardar dos estados consecutivos e interpolar visualmente a 60 FPS.
 - Enviar `input` a 60 Hz con números de secuencia (`seq`).
 - No aplicar física localmente; solo predecir levemente el propio movimiento para reducir latencia percibida.
+- El modo `coop` usa dos viewports renderizando las posiciones de `player1` y `player2` recibidas del servidor.
 
 ### 7.3 En agentes MCP
 
@@ -513,6 +515,7 @@ Cada tupla es `[x, y, z, type]`. Coordenadas absolutas del mundo.
 | Input de IA | `gamepad_input` relay | `gamepad_input` tool muta estado servidor |
 | Input humano | Procesado en navegador | Enviado al servidor, procesado allí |
 | Chunks | Generados en navegador | Generados en servidor, enviados por demanda |
+| Split-screen | Renderizado local sobre mundo local | Renderizado local sobre estado del servidor |
 
 ---
 
