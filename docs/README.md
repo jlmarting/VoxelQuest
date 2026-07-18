@@ -7,7 +7,7 @@ docs/
 ├── especificacion_mcp.md        # Especificación principal del sistema BT + MCP
 ├── MANUAL_MCP.md                # Manual de uso de la API MCP
 ├── python-server-plan.md        # Plan de migración a servidor Python
-├── python-server-protocol.md    # Protocolo cliente-servidor (en evolución)
+├── python-server-protocol.md    # Protocolo cliente-servidor (definido v0.1)
 ├── adr/                         # Architecture Decision Records
 │   ├── 001-combat-detection.md
 │   └── 002-python-server.md     # Migración a servidor Python + Web MCP
