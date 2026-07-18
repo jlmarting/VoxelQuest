@@ -4,11 +4,14 @@
 
 ```
 docs/
-├── especificacion_mcp.md    # Especificación principal del sistema BT + MCP
-├── MANUAL_MCP.md            # Manual de uso de la API MCP
-├── adr/                     # Architecture Decision Records
-│   └── 001-combat-detection.md
-└── phase-status/            # Estado de implementación por fases
+├── especificacion_mcp.md        # Especificación principal del sistema BT + MCP
+├── MANUAL_MCP.md                # Manual de uso de la API MCP
+├── python-server-plan.md        # Plan de migración a servidor Python
+├── python-server-protocol.md    # Protocolo cliente-servidor (en evolución)
+├── adr/                         # Architecture Decision Records
+│   ├── 001-combat-detection.md
+│   └── 002-python-server.md     # Migración a servidor Python + Web MCP
+└── phase-status/                # Estado de implementación por fases
     └── phase-0-initial.md
 ```
 
