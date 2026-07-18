@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxelQuest Python Client</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; color: #fff; font-family: monospace; }
+        #viewport { width: 100vw; height: 100vh; display: block; }
+        #hud { position: fixed; top: 10px; left: 10px; z-index: 10; pointer-events: none; }
+        #hud div { margin-bottom: 4px; }
+        #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; }
+    </style>
+</head>
+<body>
+    <div id="viewport"></div>
+    <div id="hud">
+        <div id="fps">FPS: 0</div>
+        <div id="pos">Pos: -</div>
+        <div id="mode">Modo: -</div>
+    </div>
+    <div id="loading">Conectando al servidor Python...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="client/js/net.js"></script>
+    <script src="client/js/world_mesh.js"></script>
+    <script src="client/js/input.js"></script>
+    <script src="client/js/main.js"></script>
+</body>
+</html>
