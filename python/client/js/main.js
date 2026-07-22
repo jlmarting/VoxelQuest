@@ -3,7 +3,8 @@
  * Soporta modo solo y split-screen coop.
  */
 
-const WS_URL = `ws://${window.location.hostname || 'localhost'}:9002/ws`;
+const WS_PORT = window.location.port || 9000;
+const WS_URL = `ws://${window.location.hostname || 'localhost'}:${WS_PORT}/ws`;
 
 class ClientGame {
     constructor(mode = 'solo') {
