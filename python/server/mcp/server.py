@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -22,111 +24,17 @@ class McpServer:
         self.game_loop = game_loop
 
     def list_tools(self) -> list[dict]:
-        return [
-            {
-                "name": "get_config",
-                "description": "Obtener configuración actual del servidor",
-                "inputSchema": {"type": "object", "properties": {}},
-            },
-            {
-                "name": "list_players",
-                "description": "Listar todos los jugadores",
-                "inputSchema": {"type": "object", "properties": {}},
-            },
-            {
-                "name": "get_player_state",
-                "description": "Obtener estado de un jugador",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"player_id": {"type": "integer"}},
-                    "required": ["player_id"],
-                },
-            },
-            {
-                "name": "place_block",
-                "description": "Coloca un bloque en coordenadas absolutas",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "x": {"type": "integer"},
-                        "y": {"type": "integer"},
-                        "z": {"type": "integer"},
-                        "type": {"type": "integer", "minimum": 0, "maximum": 10},
-                    },
-                    "required": ["x", "y", "z", "type"],
-                },
-            },
-            {
-                "name": "break_block",
-                "description": "Rompe un bloque en coordenadas absolutas",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "x": {"type": "integer"},
-                        "y": {"type": "integer"},
-                        "z": {"type": "integer"},
-                    },
-                    "required": ["x", "y", "z"],
-                },
-            },
-            {
-                "name": "get_block",
-                "description": "Obtiene el tipo de bloque en coordenadas",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "x": {"type": "integer"},
-                        "y": {"type": "integer"},
-                        "z": {"type": "integer"},
-                    },
-                    "required": ["x", "y", "z"],
-                },
-            },
-            {
-                "name": "gamepad_input",
-                "description": "Inyecta input de gamepad virtual para un jugador",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "player_id": {"type": "integer"},
-                        "input": {"type": "object"},
-                    },
-                    "required": ["player_id", "input"],
-                },
-            },
-            {
-                "name": "look",
-                "description": "Rota la cámara/jugador",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "player_id": {"type": "integer"},
-                        "yaw": {"type": "number"},
-                        "pitch": {"type": "number"},
-                    },
-                    "required": ["player_id"],
-                },
-            },
-            {
-                "name": "bt_load",
-                "description": "Carga un árbol de comportamiento JSON",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"tree": {"type": "object"}},
-                    "required": ["tree"],
-                },
-            },
-            {
-                "name": "bt_status",
-                "description": "Obtiene estado del árbol de comportamiento",
-                "inputSchema": {"type": "object", "properties": {}},
-            },
-            {
-                "name": "bt_stop",
-                "description": "Detiene el árbol de comportamiento",
-                "inputSchema": {"type": "object", "properties": {}},
-            },
-        ]
+        tools_path = Path(__file__).resolve().parent.parent.parent.parent / 'shared' / 'tools' / 'definitions.json'
+        try:
+            with open(tools_path) as f:
+                all_defs = json.load(f)
+            return [
+                {"name": name, "description": defn["description"], "inputSchema": defn["inputSchema"]}
+                for name, defn in all_defs.get("tools", {}).items()
+                if "python" in defn.get("servers", [])
+            ]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
     async def handle(self, request: dict) -> dict | None:
         if request.get("jsonrpc") != "2.0":

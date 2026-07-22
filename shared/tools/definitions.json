@@ -1,0 +1,728 @@
+{
+  "version": "1.0.0",
+  "description": "Contrato compartido de tools MCP para VoxelQuest. El campo 'servers' indica qué backend implementa cada tool.",
+  "tools": {
+    "get_config": {
+      "description": "Obtener configuración actual del servidor",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node", "python"],
+      "category": "config"
+    },
+    "set_approval_mode": {
+      "description": "Cambiar modo de aprobación (auto/human)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "enum": ["auto", "human"] }
+        },
+        "required": ["mode"]
+      },
+      "servers": ["node"],
+      "category": "config"
+    },
+    "list_players": {
+      "description": "Listar todos los jugadores",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node", "python"],
+      "category": "player"
+    },
+    "get_player_state": {
+      "description": "Obtener estado de un jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node", "python"],
+      "category": "player"
+    },
+    "set_player_position": {
+      "description": "Teletransportar un jugador a coordenadas absolutas (x,y,z)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        },
+        "required": ["player_id", "x", "y", "z"]
+      },
+      "servers": ["python"],
+      "category": "player"
+    },
+    "create_avatar": {
+      "description": "Crear nuevo avatar IA",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "gender": { "type": "string", "enum": ["male", "female"] },
+          "hairStyle": { "type": "string" },
+          "hairColor": { "type": "number" },
+          "eyeColor": { "type": "number" },
+          "shirtColor": { "type": "number" },
+          "pantsColor": { "type": "number" },
+          "spawnX": { "type": "number" },
+          "spawnZ": { "type": "number" }
+        },
+        "required": []
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "get_pending_requests": {
+      "description": "Obtener solicitudes pendientes de aprobación",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "config"
+    },
+    "approve_request": {
+      "description": "Aprobar o rechazar solicitud pendiente",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "approvalId": { "type": "string" },
+          "approved": { "type": "boolean" }
+        },
+        "required": ["approvalId", "approved"]
+      },
+      "servers": ["node"],
+      "category": "config"
+    },
+    "gamepad_connect": {
+      "description": "Activar gamepad virtual para IA",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "gamepad_input": {
+      "description": "Inyectar entrada en gamepad virtual",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "input": { "type": "object" }
+        },
+        "required": ["player_id", "input"]
+      },
+      "servers": ["node", "python"],
+      "category": "player"
+    },
+    "gamepad_disconnect": {
+      "description": "Desactivar gamepad virtual",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "look": {
+      "description": "Rotar cámara del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "yaw": { "type": "number" },
+          "pitch": { "type": "number" },
+          "yaw_delta": { "type": "number" },
+          "pitch_delta": { "type": "number" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node", "python"],
+      "category": "player"
+    },
+    "get_rotation": {
+      "description": "Obtener rotación del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "toggle_camera": {
+      "description": "Alternar modo de cámara (primera/tercera persona)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "select_slot": {
+      "description": "Seleccionar slot del inventario (0-8)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "slot": { "type": "integer", "minimum": 0, "maximum": 8 }
+        },
+        "required": ["player_id", "slot"]
+      },
+      "servers": ["node"],
+      "category": "inventory"
+    },
+    "next_slot": {
+      "description": "Seleccionar siguiente slot",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "inventory"
+    },
+    "prev_slot": {
+      "description": "Seleccionar slot anterior",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "inventory"
+    },
+    "get_inventory": {
+      "description": "Obtener inventario del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "inventory"
+    },
+    "add_item": {
+      "description": "Añadir item al inventario",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "type": { "type": "integer" },
+          "count": { "type": "integer" }
+        },
+        "required": ["player_id", "type"]
+      },
+      "servers": ["node"],
+      "category": "inventory"
+    },
+    "place_block": {
+      "description": "Colocar bloque en coordenadas absolutas",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "z": { "type": "integer" },
+          "type": { "type": "integer", "minimum": 0, "maximum": 10 }
+        },
+        "required": ["x", "y", "z", "type"]
+      },
+      "servers": ["node", "python"],
+      "category": "world"
+    },
+    "place_block_as_player": {
+      "description": "Colocar bloque donde mira el jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "type": { "type": "integer", "minimum": 0, "maximum": 10 }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node", "python"],
+      "category": "world"
+    },
+    "break_block": {
+      "description": "Romper bloque en coordenadas absolutas",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "z": { "type": "integer" }
+        },
+        "required": ["x", "y", "z"]
+      },
+      "servers": ["node", "python"],
+      "category": "world"
+    },
+    "break_block_as_player": {
+      "description": "Romper bloque donde mira el jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "world"
+    },
+    "get_block": {
+      "description": "Obtener tipo de bloque en coordenadas",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "z": { "type": "integer" }
+        },
+        "required": ["x", "y", "z"]
+      },
+      "servers": ["node", "python"],
+      "category": "world"
+    },
+    "get_height": {
+      "description": "Obtener altura del terreno en (x,z)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" }
+        },
+        "required": ["x", "z"]
+      },
+      "servers": ["node"],
+      "category": "world"
+    },
+    "get_blocks_in_area": {
+      "description": "Obtener todos los bloques en un área",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x1": { "type": "integer" },
+          "y1": { "type": "integer" },
+          "z1": { "type": "integer" },
+          "x2": { "type": "integer" },
+          "y2": { "type": "integer" },
+          "z2": { "type": "integer" }
+        },
+        "required": ["x1", "y1", "z1", "x2", "y2", "z2"]
+      },
+      "servers": ["node"],
+      "category": "world"
+    },
+    "build_structure": {
+      "description": "Construir una estructura predefinida",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "structure": { "type": "string" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "z": { "type": "integer" }
+        },
+        "required": ["structure", "x", "y", "z"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "list_structures": {
+      "description": "Listar estructuras disponibles",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "create_wall": {
+      "description": "Crear una pared de bloques",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" },
+          "length": { "type": "integer" },
+          "height": { "type": "integer" },
+          "direction": { "type": "string", "enum": ["x", "z"] },
+          "type": { "type": "integer", "minimum": 0, "maximum": 10 },
+          "baseY": { "type": "integer" }
+        },
+        "required": ["x", "z", "length"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "create_floor": {
+      "description": "Crear un suelo de bloques",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" },
+          "width": { "type": "integer" },
+          "depth": { "type": "integer" },
+          "type": { "type": "integer", "minimum": 0, "maximum": 10 },
+          "baseY": { "type": "integer" }
+        },
+        "required": ["x", "z", "width", "depth"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "fill_area": {
+      "description": "Llenar un área con un tipo de bloque",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" },
+          "width": { "type": "integer" },
+          "depth": { "type": "integer" },
+          "type": { "type": "integer", "minimum": 0, "maximum": 10 },
+          "height": { "type": "integer" },
+          "baseY": { "type": "integer" }
+        },
+        "required": ["x", "z", "width", "depth", "type"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "flat_terrain": {
+      "description": "Aplanar terreno en un área",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" },
+          "width": { "type": "integer" },
+          "depth": { "type": "integer" },
+          "height": { "type": "integer" },
+          "baseY": { "type": "integer" }
+        },
+        "required": ["x", "z", "width", "depth"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "plant_tree": {
+      "description": "Plantar un árbol",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" }
+        },
+        "required": ["x", "z"]
+      },
+      "servers": ["node"],
+      "category": "building"
+    },
+    "get_world_info": {
+      "description": "Obtener información del mundo (semilla, hora del día, etc.)",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "world"
+    },
+    "get_view": {
+      "description": "Ver qué bloque está mirando el jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "distance": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_nearby_blocks": {
+      "description": "Obtener mapa de bloques cercanos al jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "radius": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_nearby_entities": {
+      "description": "Obtener entidades cercanas al jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "radius": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_environment": {
+      "description": "Obtener información del entorno del jugador (día/noche, enemigos, altura, etc.)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_top_down_view": {
+      "description": "Vista cenital del terreno alrededor del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "radius": { "type": "integer" }
+        },
+        "required": ["player_id", "radius"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_camera_matrix": {
+      "description": "Matriz de bloques en visión de cámara del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "depth": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "get_screenshot": {
+      "description": "Capturar screenshot de la cámara del jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node"],
+      "category": "vision"
+    },
+    "send_message": {
+      "description": "Enviar mensaje de chat al jugador",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "message": { "type": "string" }
+        },
+        "required": ["player_id", "message"]
+      },
+      "servers": ["node"],
+      "category": "util"
+    },
+    "list_block_types": {
+      "description": "Listar tipos de bloques disponibles",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "util"
+    },
+    "list_avatar_colors": {
+      "description": "Listar colores disponibles para avatar",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "util"
+    },
+    "teleport": {
+      "description": "Teletransportar un jugador a coordenadas (x,y,z)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        },
+        "required": ["player_id", "x", "z"]
+      },
+      "servers": ["node"],
+      "category": "player"
+    },
+    "attack": {
+      "description": "Atacar al enemigo más cercano en cono de 90°",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "target_id": { "type": "integer" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node", "python"],
+      "category": "combat"
+    },
+    "moverse_a": {
+      "description": "Navegar con A* hacia coordenadas (x,z)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "x": { "type": "number" },
+          "z": { "type": "number" }
+        },
+        "required": ["player_id"]
+      },
+      "servers": ["node", "python"],
+      "category": "navigation"
+    },
+    "navigate_to": {
+      "description": "Alias de moverse_a. Inicia navegación A* hacia coordenadas (x,z)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "x": { "type": "number" },
+          "z": { "type": "number" }
+        },
+        "required": ["player_id", "x", "z"]
+      },
+      "servers": ["python"],
+      "category": "navigation"
+    },
+    "kill_all_monsters": {
+      "description": "Eliminar todos los monstruos del mundo",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "combat"
+    },
+    "bt_load": {
+      "description": "Cargar un árbol de comportamiento JSON",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tree": { "type": "object" }
+        },
+        "required": ["tree"]
+      },
+      "servers": ["node", "python"],
+      "category": "bt"
+    },
+    "bt_load_example": {
+      "description": "Cargar árbol de ejemplo (huir si vida baja, atacar enemigos, idle)",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "bt"
+    },
+    "bt_load_follow": {
+      "description": "Cargar árbol de seguimiento al Jugador 1",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "distancia": { "type": "number" }
+        },
+        "required": []
+      },
+      "servers": ["node"],
+      "category": "bt"
+    },
+    "bt_status": {
+      "description": "Estado del motor Behavior Tree",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node", "python"],
+      "category": "bt"
+    },
+    "bt_stop": {
+      "description": "Detener motor Behavior Tree",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node", "python"],
+      "category": "bt"
+    },
+    "avatar_walk": {
+      "description": "Mover un avatar paso a paso (dirección: north/south/east/west)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "player_id": { "type": "integer" },
+          "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+          "steps": { "type": "number" }
+        },
+        "required": ["player_id", "direction"]
+      },
+      "servers": ["node"],
+      "category": "avatar"
+    },
+    "avatars_clear": {
+      "description": "Eliminar todos los avatares IA",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "avatar"
+    },
+    "avatars_follow": {
+      "description": "Avatares IA siguen a Jugador 2",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "activar": { "type": "boolean" }
+        },
+        "required": []
+      },
+      "servers": ["node"],
+      "category": "avatar"
+    },
+    "get_avatars": {
+      "description": "Obtener lista de avatares IA con sus posiciones",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["node"],
+      "category": "avatar"
+    },
+    "training_start": {
+      "description": "Iniciar grabación de episodio de entrenamiento",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scenario": { "type": "string" }
+        },
+        "required": ["scenario"]
+      },
+      "servers": ["node"],
+      "category": "training"
+    },
+    "training_stop": {
+      "description": "Detener grabación de episodio de entrenamiento",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "exito": { "type": "boolean" }
+        },
+        "required": []
+      },
+      "servers": ["node"],
+      "category": "training"
+    }
+  }
+}

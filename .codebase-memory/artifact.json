@@ -1,0 +1,11 @@
+{
+    "schema_version": 1,
+    "commit": "ffb40a7950ff9c6f852a1d1ffa38cd04382373c5",
+    "indexed_at": "2026-07-17T23:28:26Z",
+    "project": "home-jl-Proyectos-ia-VoxelQuest-minecraft-clone",
+    "nodes": 500,
+    "edges": 1652,
+    "original_size": 3211264,
+    "compressed_size": 648729,
+    "compression_level": 9
+}

@@ -930,7 +930,7 @@ const MIME_TYPES = {
     '.wav': 'audio/wav'
 };
 
-const ROOT_DIR = __dirname;
+const ROOT_DIR = path.join(__dirname, 'web');
 
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1140,7 +1140,7 @@ wss.on('connection', (ws) => {
             // ---- Episodio de entrenamiento ----
             if (data.type === 'episode_save') {
                 const scenario = data.scenario || 'unknown';
-                const dir = path.join(__dirname, 'training', 'episodes', scenario);
+                const dir = path.join(__dirname, '..', 'python', 'training', 'episodes', scenario);
                 try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
                 const filename = Date.now() + '.jsonl';
                 fs.writeFileSync(path.join(dir, filename), data.episode || '');
