@@ -521,6 +521,23 @@ class World {
         return 30;
     }
 
+    applyServerDeltas(deltas) {
+        for (const [key, data] of Object.entries(deltas)) {
+            const [cx, cz] = key.split(',').map(Number);
+            if (!data.full) continue;
+            const chunkKey = this.getChunkKey(cx, cz);
+            let chunk = this.chunks.get(chunkKey);
+            if (!chunk) {
+                chunk = new Chunk(cx, cz, this);
+                this.chunks.set(chunkKey, chunk);
+            }
+            for (const [lx, ly, lz, type] of data.modified) {
+                chunk.setBlock(lx, ly, lz, type);
+            }
+            chunk.dirty = true;
+        }
+    }
+
     raycast(origin, direction, maxDist = 8) {
         const step = 0.1, pos = origin.clone(), dir = direction.clone().normalize().multiplyScalar(step);
         let last = null;
