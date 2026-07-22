@@ -189,3 +189,5 @@ class ServerBridge {
         this.playerId = null;
     }
 }
+
+window.ServerBridge = ServerBridge;
