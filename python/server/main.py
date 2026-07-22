@@ -5,22 +5,17 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.types import Scope, Receive, Send
 from uvicorn import Config, Server
+
+import os
+WEB_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'web')
 
 from server.engine.game_loop import GameLoop
 from server.engine.world import World
 from server.mcp.server import McpServer
 from server.websocket.game import GameConnectionManager
-
-
-class WebSocketAwareStaticFiles(StaticFiles):
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            return
-        await super().__call__(scope, receive, send)
 
 
 @asynccontextmanager
@@ -78,9 +73,15 @@ def create_app() -> FastAPI:
             return JSONResponse(content={}, status_code=200)
         return JSONResponse(content=response)
 
-    import os
-    web_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'web')
-    app.mount('/', WebSocketAwareStaticFiles(directory=web_dir, html=True), name='web')
+    @app.get("/{full_path:path}")
+    async def serve_static(full_path: str = ""):
+        if not full_path:
+            full_path = "index.html"
+        file_path = os.path.join(WEB_DIR, full_path)
+        if os.path.isfile(file_path):
+            if os.path.realpath(file_path).startswith(os.path.realpath(WEB_DIR)):
+                return FileResponse(file_path)
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
 
     return app
 
