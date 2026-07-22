@@ -74,7 +74,7 @@ cd core/python && uv run python -m server.main
 Cliente web en `client/index.html`.
 
 ### Opción 4: Abrir directamente (sin servidor)
-Simplemente abre `core/node/web/index.html` en tu navegador.
+Simplemente abre `core/web/index.html` en tu navegador.
 
 > **Nota:** El modo MCP requiere seleccionar un modo de juego (solitario/cooperativo) en el navegador.
 
