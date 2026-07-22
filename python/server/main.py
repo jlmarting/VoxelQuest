@@ -71,8 +71,8 @@ def create_app() -> FastAPI:
         return JSONResponse(content=response)
 
     import os
-    client_dir = os.path.join(os.path.dirname(__file__), '..', 'client')
-    app.mount('/', StaticFiles(directory=client_dir, html=True), name='client')
+    web_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'web')
+    app.mount('/', StaticFiles(directory=web_dir, html=True), name='web')
 
     return app
 

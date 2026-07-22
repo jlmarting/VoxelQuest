@@ -930,7 +930,7 @@ const MIME_TYPES = {
     '.wav': 'audio/wav'
 };
 
-const ROOT_DIR = path.join(__dirname, 'web');
+const ROOT_DIR = path.join(__dirname, '..', 'web');
 
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
