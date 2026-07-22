@@ -50,31 +50,31 @@ control por IA y protocolo MCP (Model Context Protocol).
 
 ## Ejecutar
 
-### Opción 1: Servidor completo (juego + API)
+### Opción 1: Servidor Node.js (juego + API)
 ```bash
-cd minecraft-clone
+cd core/node
 npm install
 node game-server.js
 ```
 Abre el navegador automáticamente en `http://localhost:9000`.
 
-### Opción 2: Con control por IA (MCP)
+### Opción 2: Con control por IA (MCP - Stack Node.js)
 ```bash
 # Terminal 1: servidor del juego
-node game-server.js
+cd core/node && node game-server.js
 
 # Terminal 2: adaptador MCP (para opencode o clientes MCP)
-node mcp-server.js
+cd core/node && node mcp-server.js
 ```
 
-### Opción 3: Solo el juego (sin IA)
+### Opción 3: Servidor Python (autoritativo)
 ```bash
-cd minecraft-clone
-python3 server.py     # o ./run.sh
+cd core/python && uv run python -m server.main
 ```
+Cliente web en `client/index.html`.
 
-### Opción 4: Abrir directamente
-Simplemente abre `index.html` en tu navegador.
+### Opción 4: Abrir directamente (sin servidor)
+Simplemente abre `core/node/web/index.html` en tu navegador.
 
 > **Nota:** El modo MCP requiere seleccionar un modo de juego (solitario/cooperativo) en el navegador.
 
@@ -221,38 +221,29 @@ En `scripts/`:
 ## Estructura del Proyecto
 
 ```
-minecraft-clone/
-├── game-server.js      # Servidor del juego + API + BT
-├── mcp-server.js       # Adaptador MCP (stdio ↔ WebSocket)
-├── bt-engine.js        # Motor de Behavior Trees
-├── index.html          # HTML principal
-├── package.json        # Dependencias (ws, @modelcontextprotocol/sdk)
-├── css/
-│   └── style.css       # Estilos
-├── js/
-│   ├── main.js         # Juego principal
-│   ├── game-client.js  # Cliente WebSocket del servidor
-│   ├── world.js        # Generación de mundo
-│   ├── player.js       # Controles del jugador
-│   ├── physics.js      # Motor físico
-│   ├── navigation.js   # Pathfinding A*
-│   ├── gamepad.js      # Gamepad virtual y físico
-│   ├── inventory.js    # Sistema de inventario
-│   ├── enemies.js      # IA de enemigos
-│   ├── daynight.js     # Ciclo día/noche
-│   ├── ui.js           # Interfaz de usuario
-│   └── noise.js        # Generador de ruido
-├── scripts/
-│   ├── chase.py        # Agente: perseguir
-│   ├── evade.py        # Agente: evadir
-│   ├── evade_chase.py  # Agente: evade + chase
-│   └── update_changelog.py
-├── docs/
-│   ├── MANUAL_MCP.md   # Referencia completa MCP
-│   ├── especificacion_mcp.md  # Especificación arquitectura
-│   └── adr/            # Decisiones de arquitectura
-├── server.py           # Servidor estático simple
-└── run.sh              # Script de ejecución
+core/                          # Código del juego
+├── shared/tools/              # Contrato MCP compartido
+│   └── definitions.json       # Tool definitions (ambos servidores)
+├── node/                      # Stack Node.js
+│   ├── game-server.js         # Servidor (web + WS + API JSON-RPC)
+│   ├── mcp-server.js          # Adaptador stdio MCP
+│   ├── bt-engine.js           # Behavior Tree engine
+│   └── web/                   # Cliente web completo (18 JS)
+│       ├── index.html
+│       ├── css/
+│       └── js/
+├── python/                    # Stack Python (autoritativo)
+│   ├── server/                # FastAPI (engine, mcp, ws, bt)
+│   ├── client/                # Cliente thin (7 JS)
+│   ├── scripts/               # chase, evade, build...
+│   ├── training/              # Episodios de entrenamiento
+│   ├── pyproject.toml
+│   └── run.sh
+├── docs/                      # Documentación compartida
+│   ├── proposals/             # Propuestas en formato human/agent
+│   └── MANUAL_MCP.md
+├── CHANGELOG.md
+└── README.md
 ```
 
 ## Notas

@@ -8,6 +8,15 @@ release boundary).
 
 ## [Unreleased]
 
+### Changed
+- refactor: reorganización de estructura y contrato MCP compartido
+  - Renombrado `minecraft-clone/` → `core/`
+  - Stack Node.js: todo en `core/node/` (servidor + web client)
+  - Stack Python: todo en `core/python/` (servidor + client + scripts + training)
+  - Contrato compartido: `core/shared/tools/definitions.json` (51 tools)
+  - Servidor Python carga tools dinámicamente del contrato
+  - `AGENTS.md` actualizado con nueva estructura
+
 ### Added
 - add follow-p1-distance script and gothic cathedral builder
 - sistema de aprendizaje de habilidades + avatares + construcciones
