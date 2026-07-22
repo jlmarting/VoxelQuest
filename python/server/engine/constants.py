@@ -15,6 +15,7 @@ class BlockType(IntEnum):
     COBBLESTONE = 8
     PLANKS = 9
     BEDROCK = 10
+    GLOWSTONE = 11
 
 
 # Compatibilidad: nombres en español para logs/debug
@@ -30,6 +31,7 @@ BLOCK_NAMES: dict[BlockType, str] = {
     BlockType.COBBLESTONE: "Roca",
     BlockType.PLANKS: "Tablones",
     BlockType.BEDROCK: "Bedrock",
+    BlockType.GLOWSTONE: "Glowstone",
 }
 
 
@@ -45,6 +47,7 @@ BLOCK_TEXTURES: dict[BlockType, tuple[int, int, int]] = {
     BlockType.COBBLESTONE: (9, 9, 9),
     BlockType.PLANKS: (10, 10, 10),
     BlockType.BEDROCK: (11, 11, 11),
+    BlockType.GLOWSTONE: (12, 12, 12),
 }
 
 

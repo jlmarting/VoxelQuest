@@ -1,16 +1,8 @@
 // Block types
 const BLOCK_TYPES = {
-    AIR: 0,
-    GRASS: 1,
-    DIRT: 2,
-    STONE: 3,
-    WOOD: 4,
-    LEAVES: 5,
-    SAND: 6,
-    WATER: 7,
-    COBBLESTONE: 8,
-    PLANKS: 9,
-    BEDROCK: 10
+    AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4,
+    LEAVES: 5, SAND: 6, WATER: 7, COBBLESTONE: 8,
+    PLANKS: 9, BEDROCK: 10, GLOWSTONE: 11
 };
 
 const BLOCK_NAMES = {
@@ -23,7 +15,8 @@ const BLOCK_NAMES = {
     [BLOCK_TYPES.WATER]: 'Agua',
     [BLOCK_TYPES.COBBLESTONE]: 'Roca',
     [BLOCK_TYPES.PLANKS]: 'Tablones',
-    [BLOCK_TYPES.BEDROCK]: 'Bedrock'
+    [BLOCK_TYPES.BEDROCK]: 'Bedrock',
+    [BLOCK_TYPES.GLOWSTONE]: 'Glowstone'
 };
 
 const BLOCK_COLORS = {
@@ -36,7 +29,8 @@ const BLOCK_COLORS = {
     [BLOCK_TYPES.WATER]: 0x1e64aa,
     [BLOCK_TYPES.COBBLESTONE]: 0x6b6b6b,
     [BLOCK_TYPES.PLANKS]: 0xbc9458,
-    [BLOCK_TYPES.BEDROCK]: 0x2a2a2a
+    [BLOCK_TYPES.BEDROCK]: 0x2a2a2a,
+    [BLOCK_TYPES.GLOWSTONE]: 0xffdd66
 };
 
 // Texture indices in atlas: [top, side, bottom]
@@ -50,7 +44,8 @@ const BLOCK_TEXTURES = {
     [BLOCK_TYPES.WATER]: [8, 8, 8],
     [BLOCK_TYPES.COBBLESTONE]: [9, 9, 9],
     [BLOCK_TYPES.PLANKS]: [10, 10, 10],
-    [BLOCK_TYPES.BEDROCK]: [11, 11, 11]
+    [BLOCK_TYPES.BEDROCK]: [11, 11, 11],
+    [BLOCK_TYPES.GLOWSTONE]: [12, 12, 12]
 };
 
 const CHUNK_SIZE = 16;
@@ -370,8 +365,15 @@ class Chunk {
             this.mesh.material.dispose();
             this.mesh = null;
         }
+        if (this.glowMesh) {
+            scene.remove(this.glowMesh);
+            this.glowMesh.geometry.dispose();
+            this.glowMesh.material.dispose();
+            this.glowMesh = null;
+        }
 
         const pos = [], uv = [], idx = [];
+        const gpos = [], guv = [], gidx = [];
 
         for (let x = 0; x < CHUNK_SIZE; x++) {
             for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -381,30 +383,48 @@ class Chunk {
                     const wx = this.x * CHUNK_SIZE + x;
                     const wz = this.z * CHUNK_SIZE + z;
                     const tex = BLOCK_TEXTURES[block];
+                    const isGlow = block === BLOCK_TYPES.GLOWSTONE;
+                    const p = isGlow ? gpos : pos;
+                    const u = isGlow ? guv : uv;
+                    const ii = isGlow ? gidx : idx;
 
-                    if (this.shouldDraw(x, y, z, 0, 1, 0)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[0]), 'top');
-                    if (this.shouldDraw(x, y, z, 0, -1, 0)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[2]), 'bottom');
-                    if (this.shouldDraw(x, y, z, 1, 0, 0)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[1]), 'x+');
-                    if (this.shouldDraw(x, y, z, -1, 0, 0)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[1]), 'x-');
-                    if (this.shouldDraw(x, y, z, 0, 0, 1)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[1]), 'z+');
-                    if (this.shouldDraw(x, y, z, 0, 0, -1)) this.face(pos, uv, idx, wx, y, wz, atlas.getUV(tex[1]), 'z-');
+                    if (this.shouldDraw(x, y, z, 0, 1, 0)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[0]), 'top');
+                    if (this.shouldDraw(x, y, z, 0, -1, 0)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[2]), 'bottom');
+                    if (this.shouldDraw(x, y, z, 1, 0, 0)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[1]), 'x+');
+                    if (this.shouldDraw(x, y, z, -1, 0, 0)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[1]), 'x-');
+                    if (this.shouldDraw(x, y, z, 0, 0, 1)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[1]), 'z+');
+                    if (this.shouldDraw(x, y, z, 0, 0, -1)) this.face(p, u, ii, wx, y, wz, atlas.getUV(tex[1]), 'z-');
                 }
             }
         }
 
-        if (pos.length === 0) return;
+        if (pos.length > 0) {
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+            geo.setIndex(idx);
+            geo.computeVertexNormals();
+            const mat = new THREE.MeshStandardMaterial({ map: atlas.texture, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
+            this.mesh = new THREE.Mesh(geo, mat);
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+            scene.add(this.mesh);
+        }
 
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-        geo.setIndex(idx);
-        geo.computeVertexNormals();
-
-        const mat = new THREE.MeshStandardMaterial({ map: atlas.texture, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
-        this.mesh = new THREE.Mesh(geo, mat);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        scene.add(this.mesh);
+        if (gpos.length > 0) {
+            const ggeo = new THREE.BufferGeometry();
+            ggeo.setAttribute('position', new THREE.Float32BufferAttribute(gpos, 3));
+            ggeo.setAttribute('uv', new THREE.Float32BufferAttribute(guv, 2));
+            ggeo.setIndex(gidx);
+            ggeo.computeVertexNormals();
+            const gmat = new THREE.MeshStandardMaterial({
+                map: atlas.texture, emissive: 0xffdd66, emissiveIntensity: 1.5,
+                roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide
+            });
+            this.glowMesh = new THREE.Mesh(ggeo, gmat);
+            this.glowMesh.castShadow = false;
+            scene.add(this.glowMesh);
+        }
         this.dirty = false;
     }
 
