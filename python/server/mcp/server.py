@@ -103,6 +103,20 @@ class McpServer:
             raise McpError(-32602, f"Player {player_id} not found")
         return player.to_dict()
 
+    async def tool_set_player_position(self, args: dict) -> dict:
+        player_id = int(args.get("player_id", 0))
+        player = self.game_loop.get_player(player_id)
+        if player is None:
+            raise McpError(-32602, f"Player {player_id} not found")
+        player.position.x = float(args["x"])
+        player.position.y = float(args.get("y", player.position.y))
+        player.position.z = float(args["z"])
+        player.velocity.x = 0.0
+        player.velocity.z = 0.0
+        player.velocity.y = 0.0
+        player.on_ground = False
+        return {"success": True, "position": player.position.to_dict(), "player_id": player_id}
+
     async def tool_place_block(self, args: dict) -> dict:
         x, y, z = int(args["x"]), int(args["y"]), int(args["z"])
         block_type = int(args["type"])
