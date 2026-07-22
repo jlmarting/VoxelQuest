@@ -396,7 +396,7 @@ GAMEPAD (Xbox 360):
 
         // Connect to Python server bridge (state_update protocol)
         this.serverBridge = new ServerBridge(this);
-        const wsUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}`;
+        const wsUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}/ws`;
         this.serverBridge.connect(wsUrl).then(() => {
             console.log('[Bridge] Conectado al servidor Python');
         }).catch(() => {
