@@ -94,10 +94,10 @@ class GameConnectionManager:
             player.input_move.z = max(-1, min(1, float(move.get("z", 0))))
             player.input_look.x = max(-1, min(1, float(look.get("x", 0))))
             player.input_look.y = max(-1, min(1, float(look.get("y", 0))))
-            player.input_jump = bool(data.get("jump", False))
-            player.input_fly = bool(data.get("fly", False))
-            player.input_place_block = bool(data.get("place_block", False))
-            player.input_break_block = bool(data.get("break_block", False))
+            player.input_jump = player.input_jump or bool(data.get("jump", False))
+            player.input_fly = player.input_fly or bool(data.get("fly", False))
+            player.input_place_block = player.input_place_block or bool(data.get("place_block", False))
+            player.input_break_block = player.input_break_block or bool(data.get("break_block", False))
             if "selected_slot" in data:
                 player.selected_slot = max(0, min(8, int(data["selected_slot"])))
         elif msg_type == "ping":
