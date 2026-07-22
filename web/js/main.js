@@ -459,7 +459,9 @@ GAMEPAD (Xbox 360):
         // Update players
         this.player1.update(deltaTime);
         if (this.isMultiplayer) {
-            this.player2.update(deltaTime);
+            if (!this.serverBridge || !this.serverBridge.connected) {
+                this.player2.update(deltaTime);
+            }
         }
 
         // Update player models
