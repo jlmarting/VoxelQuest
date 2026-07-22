@@ -22,6 +22,8 @@ from server.websocket.game import GameConnectionManager
 async def lifespan(app: FastAPI):
     world = World(seed=12345)
     game_loop = GameLoop(world)
+    game_loop.add_player(1, name="Jugador 1")
+    game_loop.add_player(2, name="Jugador 2", is_ai=True)
     ws_manager = GameConnectionManager(game_loop)
     mcp_server = McpServer(game_loop)
 
