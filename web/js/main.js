@@ -461,6 +461,8 @@ GAMEPAD (Xbox 360):
         if (this.isMultiplayer) {
             if (!this.serverBridge || !this.serverBridge.connected) {
                 this.player2.update(deltaTime);
+            } else {
+                this.player2.updateCamera();
             }
         }
 

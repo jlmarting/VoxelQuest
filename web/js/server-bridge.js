@@ -59,9 +59,6 @@ class ServerBridge {
         const g = this.game;
 
         if (state.players) {
-            const myState = state.players[String(this.playerId)];
-            if (myState) g.player1.applyServerState(myState);
-            // Try to find P2 in remaining players
             for (const [pid, ps] of Object.entries(state.players)) {
                 if (Number(pid) !== this.playerId) {
                     g.player2.applyServerState(ps);

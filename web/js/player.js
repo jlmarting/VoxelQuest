@@ -240,6 +240,30 @@ class Player {
         this.moveWithCollision(deltaTime);
 
         // Update camera based on mode
+        this.updateCamera();
+
+        // Gamepad block actions
+        if (this.gamepadHandler && this.gamepadHandler.isConnected(this.gamepadIndex)) {
+            const actions = this.gamepadHandler.getActions(this.gamepadIndex);
+            if (actions.breakBlock && !this.gamepadBreakPressed) {
+                this.breakBlock();
+            }
+            this.gamepadBreakPressed = actions.breakBlock;
+
+            if (actions.placeBlock && !this.gamepadPlacePressed) {
+                this.placeBlock();
+            }
+            this.gamepadPlacePressed = actions.placeBlock;
+
+            const slots = this.gamepadHandler.getSlotSelection(this.gamepadIndex);
+            if (slots.dpRight) this.selectedSlot = (this.selectedSlot + 1) % 9;
+            if (slots.dpLeft) this.selectedSlot = (this.selectedSlot + 8) % 9;
+            if (slots.dpUp) this.selectedSlot = (this.selectedSlot + 3) % 9;
+            if (slots.dpDown) this.selectedSlot = (this.selectedSlot + 6) % 9;
+        }
+    }
+
+    updateCamera() {
         const dist = this.cameraDistances[this.cameraMode];
         const height = this.cameraHeights[this.cameraMode];
 
@@ -267,32 +291,9 @@ class Player {
         // Camera looks at player (third person) or forward (first person)
         const camEuler = new THREE.Euler(this.rotation.x, this.rotation.y, 0, 'YXZ');
         if (dist > 0) {
-            // Third person: look at player
             this.camera.lookAt(this.position.x, this.position.y + 1.0, this.position.z);
         } else {
-            // First person: look forward
             this.camera.quaternion.setFromEuler(camEuler);
-        }
-
-        // Gamepad block actions
-        if (this.gamepadHandler && this.gamepadHandler.isConnected(this.gamepadIndex)) {
-            const actions = this.gamepadHandler.getActions(this.gamepadIndex);
-            if (actions.breakBlock && !this.gamepadBreakPressed) {
-                this.breakBlock();
-            }
-            this.gamepadBreakPressed = actions.breakBlock;
-
-            if (actions.placeBlock && !this.gamepadPlacePressed) {
-                this.placeBlock();
-            }
-            this.gamepadPlacePressed = actions.placeBlock;
-
-            // Slot selection with D-pad
-            const slots = this.gamepadHandler.getSlotSelection(this.gamepadIndex);
-            if (slots.dpRight) this.selectedSlot = (this.selectedSlot + 1) % 9;
-            if (slots.dpLeft) this.selectedSlot = (this.selectedSlot + 8) % 9;
-            if (slots.dpUp) this.selectedSlot = (this.selectedSlot + 3) % 9;
-            if (slots.dpDown) this.selectedSlot = (this.selectedSlot + 6) % 9;
         }
     }
 
