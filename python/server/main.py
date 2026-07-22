@@ -5,14 +5,22 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope, Receive, Send
 from uvicorn import Config, Server
 
 from server.engine.game_loop import GameLoop
 from server.engine.world import World
 from server.mcp.server import McpServer
 from server.websocket.game import GameConnectionManager
+
+
+class WebSocketAwareStaticFiles(StaticFiles):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return
+        await super().__call__(scope, receive, send)
 
 
 @asynccontextmanager
@@ -72,7 +80,7 @@ def create_app() -> FastAPI:
 
     import os
     web_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'web')
-    app.mount('/', StaticFiles(directory=web_dir, html=True), name='web')
+    app.mount('/', WebSocketAwareStaticFiles(directory=web_dir, html=True), name='web')
 
     return app
 
