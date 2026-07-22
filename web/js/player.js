@@ -477,6 +477,17 @@ class Player {
         if (this.sound) this.sound.blockBreak();
         return dead;
     }
+
+    applyServerState(state) {
+        if (state.x !== undefined) this.position.x = state.x;
+        if (state.y !== undefined) this.position.y = state.y;
+        if (state.z !== undefined) this.position.z = state.z;
+        if (state.rx !== undefined) this.rotation.x = state.rx;
+        if (state.ry !== undefined) this.rotation.y = state.ry;
+        if (state.health !== undefined) this.health = state.health;
+        if (state.on_ground !== undefined) this.onGround = state.on_ground;
+        if (state.is_flying !== undefined) this.isFlying = state.is_flying;
+    }
 }
 
 window.Player = Player;

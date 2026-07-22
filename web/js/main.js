@@ -394,6 +394,15 @@ GAMEPAD (Xbox 360):
             console.log('[Game] Servidor no disponible (opcional)');
         });
 
+        // Connect to Python server bridge (state_update protocol)
+        this.serverBridge = new ServerBridge(this);
+        const wsUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}`;
+        this.serverBridge.connect(wsUrl).then(() => {
+            console.log('[Bridge] Conectado al servidor Python');
+        }).catch(() => {
+            console.log('[Bridge] Servidor Python no disponible');
+        });
+
         // Initialize in-game console
         this.gameConsole = new GameConsole(this);
         window.gameConsole = this.gameConsole;
@@ -502,6 +511,11 @@ GAMEPAD (Xbox 360):
         // Sync state with server (every frame, but throttled internally)
         if (this.gameClient && this.gameClient.connected) {
             this.gameClient.syncState();
+        }
+
+        // Send local input to Python server bridge
+        if (this.serverBridge && this.serverBridge.connected) {
+            this.serverBridge.collectAndSendInput();
         }
 
         // Update block highlight
