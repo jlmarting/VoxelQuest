@@ -123,6 +123,24 @@ class McpServer:
         self.game_loop.world.set_block(x, y, z, block_type)
         return {"success": True, "position": {"x": x, "y": y, "z": z}, "type": block_type}
 
+    async def tool_fill_area(self, args: dict) -> dict:
+        x = int(args["x"]); z = int(args["z"])
+        width = int(args["width"]); depth = int(args["depth"])
+        height = int(args.get("height", 1))
+        base_y = int(args.get("baseY", 20))
+        block_type = int(args.get("type", 0))
+        count = 0
+        for dx in range(width):
+            for dz in range(depth):
+                for dy in range(height):
+                    wx, wy, wz = x + dx, base_y + dy, z + dz
+                    if block_type == 0:
+                        self.game_loop.world.set_block(wx, wy, wz, 0)
+                    else:
+                        self.game_loop.world.set_block(wx, wy, wz, block_type)
+                    count += 1
+        return {"success": True, "blocks_affected": count}
+
     async def tool_break_block(self, args: dict) -> dict:
         from server.engine.constants import BlockType
 

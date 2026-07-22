@@ -401,7 +401,7 @@
         },
         "required": ["x", "z", "width", "depth", "type"]
       },
-      "servers": ["node"],
+      "servers": ["node", "python"],
       "category": "building"
     },
     "flat_terrain": {
