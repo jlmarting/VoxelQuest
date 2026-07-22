@@ -5,7 +5,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from uvicorn import Config, Server
 
 from server.engine.game_loop import GameLoop
@@ -68,6 +69,10 @@ def create_app() -> FastAPI:
         if response is None:
             return JSONResponse(content={}, status_code=200)
         return JSONResponse(content=response)
+
+    import os
+    client_dir = os.path.join(os.path.dirname(__file__), '..', 'client')
+    app.mount('/', StaticFiles(directory=client_dir, html=True), name='client')
 
     return app
 
