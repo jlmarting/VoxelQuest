@@ -67,6 +67,10 @@ def create_app() -> FastAPI:
         finally:
             ws_manager.disconnect(client_id)
 
+    @app.websocket("/")
+    async def root_websocket(websocket: WebSocket):
+        await game_websocket(websocket)
+
     @app.post("/mcp")
     async def mcp_endpoint(request: Request):
         body = await request.json()
