@@ -364,8 +364,11 @@ GAMEPAD (Xbox 360):
         if (this.gameMode === 'training') {
             this.world.enableFlatMode(80);
             this.enemyManager.enemies = [];
-            this.player1.spawn(40, 38);
-            this.player2.spawn(40, 42);
+            this.world.update(40, 38);
+            const h1 = this.world.getSpawnHeight(40, 38);
+            const h2 = this.world.getSpawnHeight(40, 42);
+            this.player1.position.set(40, h1, 38);
+            this.player2.position.set(40, h2, 42);
             document.getElementById('viewport-p2').style.display = 'block';
         } else {
             this.player1.spawn(8, 8);
