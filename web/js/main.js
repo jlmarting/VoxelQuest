@@ -363,6 +363,7 @@ GAMEPAD (Xbox 360):
         // Spawn players
         if (this.gameMode === 'training') {
             this.world.enableFlatMode(80);
+            this.enemyManager.enemies = [];
             this.player1.spawn(40, 38);
             this.player2.spawn(40, 42);
             document.getElementById('viewport-p2').style.display = 'block';

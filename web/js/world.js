@@ -529,7 +529,8 @@ class World {
                 const key = this.getChunkKey(pcx + dx, pcz + dz);
                 if (!this.chunks.has(key)) {
                     const c = new Chunk(pcx + dx, pcz + dz, this);
-                    c.generateTerrain(this.noise);
+                    if (this.flatMode) c.generateFlatTerrain();
+                    else c.generateTerrain(this.noise);
                     this.chunks.set(key, c);
                 }
             }
