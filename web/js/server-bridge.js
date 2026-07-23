@@ -94,6 +94,18 @@ class ServerBridge {
 
         if (state.events) {
             for (const ev of state.events) {
+                if (ev.type === 'block_update') {
+                    g.world.setBlock(ev.x, ev.y, ev.z, ev.block_type);
+                }
+                if (ev.type === 'fill_area') {
+                    for (let dx = 0; dx < ev.width; dx++) {
+                        for (let dz = 0; dz < ev.depth; dz++) {
+                            for (let dy = 0; dy < ev.height; dy++) {
+                                g.world.setBlock(ev.x + dx, ev.baseY + dy, ev.z + dz, ev.block_type);
+                            }
+                        }
+                    }
+                }
                 if (ev.type === 'entity_died' && ev.target === 'enemy') {
                     g.enemyManager.removeById(ev.id, g.scene);
                 }

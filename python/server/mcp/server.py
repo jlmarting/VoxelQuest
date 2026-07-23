@@ -121,6 +121,7 @@ class McpServer:
         x, y, z = int(args["x"]), int(args["y"]), int(args["z"])
         block_type = int(args["type"])
         self.game_loop.world.set_block(x, y, z, block_type)
+        self.game_loop._pending_events.append({"type": "block_update", "x": x, "y": y, "z": z, "block_type": block_type})
         return {"success": True, "position": {"x": x, "y": y, "z": z}, "type": block_type}
 
     async def tool_fill_area(self, args: dict) -> dict:
@@ -139,6 +140,7 @@ class McpServer:
                     else:
                         self.game_loop.world.set_block(wx, wy, wz, block_type)
                     count += 1
+        self.game_loop._pending_events.append({"type": "fill_area", "x": x, "z": z, "width": width, "depth": depth, "baseY": base_y, "height": height, "block_type": block_type})
         return {"success": True, "blocks_affected": count}
 
     async def tool_break_block(self, args: dict) -> dict:
