@@ -386,21 +386,19 @@ GAMEPAD (Xbox 360):
         this.inventoryUI = new InventoryUI(this.player1.inventory);
         window.gameUI = this;
 
-        // Connect to game server (optional - won't block game if not running)
-        this.gameClient.connect().then(() => {
-            console.log('[Game] Conectado al servidor');
-            this.gameClient.sendState();
-        }).catch(err => {
-            console.log('[Game] Servidor no disponible (opcional)');
-        });
-
         // Connect to Python server bridge (state_update protocol)
         this.serverBridge = new ServerBridge(this);
         const wsUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}/ws`;
         this.serverBridge.connect(wsUrl).then(() => {
             console.log('[Bridge] Conectado al servidor Python');
         }).catch(() => {
-            console.log('[Bridge] Servidor Python no disponible');
+            console.log('[Bridge] Servidor Python no disponible, probando Node.js...');
+            this.gameClient.connect().then(() => {
+                console.log('[Game] Conectado al servidor Node.js');
+                this.gameClient.sendState();
+            }).catch(() => {
+                console.log('[Game] Sin servidor (modo local)');
+            });
         });
 
         // Initialize in-game console

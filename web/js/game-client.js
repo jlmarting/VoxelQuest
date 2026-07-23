@@ -11,7 +11,7 @@ class GameClient {
         this.connected = false;
         this.ws = null;
         // Conectar al mismo host que sirve el juego
-        this.serverUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}`;
+        this.serverUrl = `ws://${window.location.hostname || 'localhost'}:${window.location.port || 9000}/ws`;
         this.syncInterval = null;
         this.playerStates = {};
         this.pathfinder = new Pathfinder(game.world);
