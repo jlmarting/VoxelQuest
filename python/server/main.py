@@ -86,7 +86,7 @@ def create_app() -> FastAPI:
         file_path = os.path.join(WEB_DIR, full_path)
         if os.path.isfile(file_path):
             if os.path.realpath(file_path).startswith(os.path.realpath(WEB_DIR)):
-                return FileResponse(file_path)
+                return FileResponse(file_path, headers={"Cache-Control": "no-store"})
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
     return app
