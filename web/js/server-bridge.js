@@ -59,6 +59,14 @@ class ServerBridge {
         const g = this.game;
 
         if (state.players) {
+            const myState = state.players[String(this.playerId)];
+            if (myState) {
+                const dx = myState.x - g.player1.position.x;
+                const dz = myState.z - g.player1.position.z;
+                if (Math.abs(dx) > 5 || Math.abs(dz) > 5) {
+                    g.player1.applyServerState(myState);
+                }
+            }
             for (const [pid, ps] of Object.entries(state.players)) {
                 if (Number(pid) !== this.playerId) {
                     g.player2.applyServerState(ps);
