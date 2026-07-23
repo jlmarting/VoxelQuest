@@ -44,6 +44,9 @@ class ServerBridge {
                         }
                     }
                 }, 50);
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 
