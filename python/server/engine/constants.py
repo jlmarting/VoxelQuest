@@ -16,6 +16,7 @@ class BlockType(IntEnum):
     PLANKS = 9
     BEDROCK = 10
     GLOWSTONE = 11
+    REDSTONE = 12
 
 
 # Compatibilidad: nombres en español para logs/debug

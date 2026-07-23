@@ -2,7 +2,7 @@
 const BLOCK_TYPES = {
     AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4,
     LEAVES: 5, SAND: 6, WATER: 7, COBBLESTONE: 8,
-    PLANKS: 9, BEDROCK: 10, GLOWSTONE: 11
+    PLANKS: 9,     BEDROCK: 10, GLOWSTONE: 11, REDSTONE: 12
 };
 
 const BLOCK_NAMES = {
@@ -16,7 +16,8 @@ const BLOCK_NAMES = {
     [BLOCK_TYPES.COBBLESTONE]: 'Roca',
     [BLOCK_TYPES.PLANKS]: 'Tablones',
     [BLOCK_TYPES.BEDROCK]: 'Bedrock',
-    [BLOCK_TYPES.GLOWSTONE]: 'Glowstone'
+    [BLOCK_TYPES.GLOWSTONE]: 'Glowstone',
+    [BLOCK_TYPES.REDSTONE]: 'Redstone'
 };
 
 const BLOCK_COLORS = {
@@ -30,7 +31,8 @@ const BLOCK_COLORS = {
     [BLOCK_TYPES.COBBLESTONE]: 0x6b6b6b,
     [BLOCK_TYPES.PLANKS]: 0xbc9458,
     [BLOCK_TYPES.BEDROCK]: 0x2a2a2a,
-    [BLOCK_TYPES.GLOWSTONE]: 0xffdd66
+    [BLOCK_TYPES.GLOWSTONE]: 0xffdd66,
+    [BLOCK_TYPES.REDSTONE]: 0xff3333
 };
 
 // Texture indices in atlas: [top, side, bottom]
@@ -45,7 +47,8 @@ const BLOCK_TEXTURES = {
     [BLOCK_TYPES.COBBLESTONE]: [9, 9, 9],
     [BLOCK_TYPES.PLANKS]: [10, 10, 10],
     [BLOCK_TYPES.BEDROCK]: [11, 11, 11],
-    [BLOCK_TYPES.GLOWSTONE]: [12, 12, 12]
+    [BLOCK_TYPES.GLOWSTONE]: [12, 12, 12],
+    [BLOCK_TYPES.REDSTONE]: [13, 13, 13]
 };
 
 const CHUNK_SIZE = 16;
@@ -383,7 +386,7 @@ class Chunk {
                     const wx = this.x * CHUNK_SIZE + x;
                     const wz = this.z * CHUNK_SIZE + z;
                     const tex = BLOCK_TEXTURES[block];
-                    const isGlow = block === BLOCK_TYPES.GLOWSTONE;
+                    const isGlow = block === BLOCK_TYPES.GLOWSTONE || block === BLOCK_TYPES.REDSTONE;
                     const p = isGlow ? gpos : pos;
                     const u = isGlow ? guv : uv;
                     const ii = isGlow ? gidx : idx;
@@ -418,7 +421,7 @@ class Chunk {
             ggeo.setIndex(gidx);
             ggeo.computeVertexNormals();
             const gmat = new THREE.MeshStandardMaterial({
-                map: atlas.texture, emissive: 0xffdd66, emissiveIntensity: 1.5,
+                map: atlas.texture, emissive: 0xff4444, emissiveIntensity: 1.5,
                 roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide
             });
             this.glowMesh = new THREE.Mesh(ggeo, gmat);
