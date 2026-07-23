@@ -11,34 +11,39 @@ class ServerBridge {
 
     connect(url) {
         return new Promise((resolve, reject) => {
-            this.ws = new WebSocket(url);
+            try {
+                console.log('[Bridge] Conectando a', url);
+                this.ws = new WebSocket(url);
 
-            this.ws.onopen = () => {
-                this.connected = true;
-                console.log('[Bridge] Conectado al servidor Python');
-            };
+                this.ws.onopen = () => {
+                    this.connected = true;
+                    console.log('[Bridge] WebSocket conectado');
+                };
 
-            this.ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                this._handleMessage(data);
-            };
+                this.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this._handleMessage(data);
+                };
 
-            this.ws.onclose = () => {
-                this.connected = false;
-                console.log('[Bridge] Desconectado del servidor');
-            };
+                this.ws.onclose = (e) => {
+                    this.connected = false;
+                    console.log('[Bridge] Desconectado:', e.code, e.reason);
+                };
 
-            this.ws.onerror = (err) => {
-                console.error('[Bridge] Error WS:', err);
-                reject(err);
-            };
+                this.ws.onerror = (err) => {
+                    console.error('[Bridge] Error WS:', err);
+                    reject(err);
+                };
 
-            const check = setInterval(() => {
-                if (this.playerId !== null || !this.connected) {
-                    clearInterval(check);
-                    if (this.connected) resolve();
-                }
-            }, 50);
+                const check = setInterval(() => {
+                    if (this.playerId !== null || !this.connected) {
+                        clearInterval(check);
+                        if (this.connected) {
+                            console.log('[Bridge] Player ID:', this.playerId);
+                            resolve();
+                        }
+                    }
+                }, 50);
         });
     }
 
@@ -69,7 +74,11 @@ class ServerBridge {
             }
             for (const [pid, ps] of Object.entries(state.players)) {
                 if (Number(pid) !== this.playerId) {
-                    g.player2.applyServerState(ps);
+                    const dx = ps.x - g.player2.position.x;
+                    const dz = ps.z - g.player2.position.z;
+                    if (Math.abs(dx) > 3 || Math.abs(dz) > 3) {
+                        g.player2.applyServerState(ps);
+                    }
                     break;
                 }
             }
