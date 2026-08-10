@@ -2,9 +2,9 @@ class DayNightCycle {
     constructor(scene) {
         this.scene = scene;
 
-        // Time settings
-        this.dayDuration = 600;
-        this.timeOfDay = 0.35; // Start at morning
+// TRAINING MODE: permanent bright daylight
+        this.dayDuration = 999999999;  // never advances
+        this.timeOfDay = 0.5; // fixed at noon
 
         // Hemisphere light (sky top / ground bottom gradient)
         this.hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x5d8c3e, 0.6);

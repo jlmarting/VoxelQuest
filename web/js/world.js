@@ -496,7 +496,7 @@ class World {
         this.scene = scene;
         this.chunks = new Map();
         this.noise = new PerlinNoise(seed);
-        this.renderDistance = 4;
+        this.renderDistance = 32;  // 32 chunks = 512 bloques → área visible ~1000 bloques
         this.atlas = new TextureAtlas();
         this.atlas.generate();
         this.flatMode = null;

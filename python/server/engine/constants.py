@@ -73,7 +73,7 @@ TICK_RATE = 20
 DT = 1.0 / TICK_RATE
 
 # Render
-RENDER_DISTANCE = 4
+RENDER_DISTANCE = 32  # 32*16=512 → área visible ~1000 bloques para entrenamiento IA
 
 # Objetos móviles (propuesta 002)
 MAX_OBJECTS = 100
