@@ -496,7 +496,7 @@ class World {
         this.scene = scene;
         this.chunks = new Map();
         this.noise = new PerlinNoise(seed);
-        this.renderDistance = 32;  // 32 chunks = 512 bloques → área visible ~1000 bloques
+        this.renderDistance = 10;  // 10 chunks = 160 bloques visibles. El MUNDO es 1000x1000, se carga progresivamente
         this.atlas = new TextureAtlas();
         this.atlas.generate();
         this.flatMode = null;
@@ -563,7 +563,8 @@ class World {
                 }
             }
         // Rebuild limitado por frame: evita que una construcción masiva bloquee el render
-        let budget = 1;
+        // En modo flat permitimos más budget para cargar la llanura rápidamente
+        let budget = this.flatMode ? 8 : 1;
         for (const [, c] of this.chunks) {
             if (!c.dirty) continue;
             c.buildMesh(this.scene, this.atlas);
