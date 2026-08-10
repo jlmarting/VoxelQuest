@@ -20,7 +20,7 @@ from server.websocket.game import GameConnectionManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    world = World(seed=12345)
+    world = World(seed=12345, flat_mode=999999)  # Llanura infinita para entrenamiento IA
     game_loop = GameLoop(world)
     game_loop.add_player(1, name="Jugador 1")
     game_loop.add_player(2, name="Jugador 2", is_ai=True)

@@ -502,13 +502,26 @@ GAMEPAD (Xbox 360):
         this.dayNight.update(deltaTime);
 
         // Update enemies
-        this.enemyManager.update(deltaTime, [this.player1, this.player2], this.scene, this.dayNight.isNight());
+        // Con el servidor Python conectado (fuente de verdad a 20Hz), el
+        // cliente NO simula enemigos: solo interpola y renderiza. Simular en
+        // paralelo provoca que los monstruos salten/floten (pelea de posiciones).
+        const serverAuthoritative = !!(this.serverBridge && this.serverBridge.connected);
+        if (serverAuthoritative) {
+            this.enemyManager.updateRender(deltaTime);
+        } else {
+            this.enemyManager.update(deltaTime, [this.player1, this.player2], this.scene, this.dayNight.isNight());
+        }
 
         // Update physics (falling blocks)
         this.physics.update(deltaTime);
 
         // Update building asset animations (torch flames, etc.)
         this.buildingAssets.updateAnimations(this.clock.elapsedTime);
+
+        // Interpolar objetos móviles (servidor a 20Hz, render a ~60FPS)
+        if (this.objectRenderer) {
+            this.objectRenderer.tickInterpolation(deltaTime);
+        }
 
         // Sync state with server (every frame, but throttled internally)
         if (this.gameClient && this.gameClient.connected) {

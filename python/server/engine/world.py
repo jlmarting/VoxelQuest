@@ -21,6 +21,8 @@ class World:
         self.flat_mode = flat_mode
         self.chunks: dict[tuple[int, int], Chunk] = {}
         self._players: list[Player] = []
+        # Registro de cambios de bloques a difundir en el próximo state_update
+        self.block_changes: list[dict] = []
 
     @staticmethod
     def _chunk_key(cx: int, cz: int) -> tuple[int, int]:
@@ -43,8 +45,8 @@ class World:
     def get_block(self, wx: int, wy: int, wz: int) -> BlockType:
         if wy < 0 or wy >= WORLD_HEIGHT:
             return BlockType.AIR
-        cx = int(wx // CHUNK_SIZE) if wx >= 0 else int((wx - (CHUNK_SIZE - 1)) // CHUNK_SIZE)
-        cz = int(wz // CHUNK_SIZE) if wz >= 0 else int((wz - (CHUNK_SIZE - 1)) // CHUNK_SIZE)
+        cx = int(wx // CHUNK_SIZE)
+        cz = int(wz // CHUNK_SIZE)
         chunk = self.get_chunk(cx, cz)
         if chunk is None:
             return BlockType.AIR
@@ -55,12 +57,13 @@ class World:
     def set_block(self, wx: int, wy: int, wz: int, block_type: BlockType | int) -> None:
         if wy < 0 or wy >= WORLD_HEIGHT:
             return
-        cx = int(wx // CHUNK_SIZE) if wx >= 0 else int((wx - (CHUNK_SIZE - 1)) // CHUNK_SIZE)
-        cz = int(wz // CHUNK_SIZE) if wz >= 0 else int((wz - (CHUNK_SIZE - 1)) // CHUNK_SIZE)
+        cx = int(wx // CHUNK_SIZE)
+        cz = int(wz // CHUNK_SIZE)
         chunk = self.ensure_chunk(cx, cz)
         lx = wx - cx * CHUNK_SIZE
         lz = wz - cz * CHUNK_SIZE
         chunk.set_block(lx, wy, lz, block_type)
+        self.block_changes.append({"x": wx, "y": wy, "z": wz, "type": int(block_type)})
         # Marcar chunks vecinos como dirty si el bloque está en el borde
         if lx == 0:
             neighbor = self.get_chunk(cx - 1, cz)
@@ -78,6 +81,17 @@ class World:
             neighbor = self.get_chunk(cx, cz + 1)
             if neighbor:
                 neighbor.dirty = True
+
+    def take_block_updates(self, limit: int = 0) -> list[dict]:
+        """Devuelve hasta `limit` cambios pendientes y deja el resto para el próximo tick.
+        limit=0 o negativo = devolver todo."""
+        if limit <= 0 or len(self.block_changes) <= limit:
+            updates = self.block_changes
+            self.block_changes = []
+            return updates
+        out = self.block_changes[:limit]
+        self.block_changes = self.block_changes[limit:]
+        return out
 
     def update_around(self, px: float, pz: float) -> None:
         """Genera chunks alrededor de la posición dada."""
@@ -98,16 +112,25 @@ class World:
         """Devuelve cambios de bloques desde la última snapshot conocida.
 
         known_chunks: dict {(cx, cz): serial} donde serial es un contador de versión.
+        Un chunk se envía completo solo la primera vez (needs_full); después solo
+        los bloques marcados como modified (incluye aire).
         """
         deltas: dict = {}
         for (cx, cz), chunk in self.chunks.items():
-            current = chunk.dirty  # placeholder: en v0.2 usaremos un serial por chunk
-            if current:
+            if chunk.needs_full:
                 deltas[f"{cx},{cz}"] = {
                     "modified": chunk.get_modified_blocks(),
                     "full": True,
                 }
-                chunk.dirty = False
+                chunk.needs_full = False
+                chunk._reset_modified()
+            elif chunk._modified:
+                modified = chunk.get_modified_since()
+                if modified:
+                    deltas[f"{cx},{cz}"] = {
+                        "modified": modified,
+                        "full": False,
+                    }
         return deltas
 
     def raycast(

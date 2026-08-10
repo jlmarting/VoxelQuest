@@ -31,6 +31,7 @@ const ENEMY_TYPES = {
         height: 1.5,
         followDistance: 16,
         attackDistance: 3,
+        attackCooldown: 1500,
         explodeRadius: 4
     }
 };
@@ -48,6 +49,11 @@ class Enemy {
         this.maxHealth = this.config.health;
         this.onGround = false;
         this.lastAttackTime = 0;
+
+        // Estado de interpolación (usado cuando el servidor es autoritativo)
+        this.prevPos = position.clone();
+        this.targetPos = position.clone();
+        this.snapTime = performance.now() / 1000;
         
         // AI state
         this.target = null;
@@ -251,10 +257,73 @@ class EnemyManager {
         this.spawnRadius = 20;
         this.spawnCooldown = 5000;
         this.lastSpawnTime = 0;
+        // Spawn automático desactivado por defecto: los monstruos solo aparecen
+        // si se activan explícitamente (comando /monsters o /spawn).
+        this.spawnEnabled = false;
     }
 
     findEnemyById(id) {
         return this.enemies.find(e => e.id === id) || null;
+    }
+
+    syncFromServer(serverEnemies, scene) {
+        const seen = new Set();
+        for (const se of serverEnemies) {
+            seen.add(se.id);
+            let enemy = this.findEnemyById(se.id);
+            if (!enemy) {
+                const pos = new THREE.Vector3(se.x, se.y, se.z);
+                enemy = new Enemy(se.type, pos, this.world);
+                enemy.id = se.id;
+                enemy.prevPos = pos.clone();
+                enemy.targetPos = pos.clone();
+                enemy.snapTime = performance.now() / 1000;
+                this.enemies.push(enemy);
+                scene.add(enemy.mesh);
+            } else {
+                // Guardar estado de interpolación para suavizar los snapshots
+                // a 20Hz del servidor (evita saltos/parpadeo).
+                enemy.prevPos = enemy.targetPos ? enemy.targetPos.clone() : enemy.position.clone();
+                enemy.targetPos = new THREE.Vector3(se.x, se.y, se.z);
+                enemy.snapTime = performance.now() / 1000;
+            }
+            enemy.position.set(se.x, se.y, se.z);
+            enemy.health = se.health;
+        }
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            if (!seen.has(this.enemies[i].id)) {
+                this.removeEnemy(this.enemies[i], scene, i);
+            }
+        }
+    }
+
+    /**
+     * Render-only: interpola la posición de los enemigos y posiciona los meshes
+     * SIN simular AI/física local. Se usa cuando el servidor Python es la fuente
+     * de verdad (state_update a 20Hz). Simular aquí además del servidor provoca
+     * que los monstruos salten/floten (pelea de posiciones).
+     */
+    updateRender(deltaTime) {
+        const now = performance.now() / 1000;
+        const INTERP_DELAY = 0.05;    // 1 tick de retardo
+        const INTERP_WINDOW = 0.05;   // ventana de suavizado
+        for (const enemy of this.enemies) {
+            if (enemy.targetPos && enemy.prevPos) {
+                const elapsed = now - enemy.snapTime - INTERP_DELAY;
+                const alpha = Math.max(0, Math.min(1, elapsed / INTERP_WINDOW));
+                enemy.position.lerpVectors(enemy.prevPos, enemy.targetPos, alpha);
+            }
+            // El servidor envía la Y de los PIES de la entidad. El mesh es una
+            // BoxGeometry centrada, así que subimos height/2 para que los pies
+            // queden sobre la superficie.
+            enemy.mesh.position.copy(enemy.position);
+            enemy.mesh.position.y += enemy.config.height / 2;
+        }
+    }
+
+    removeById(id, scene) {
+        const idx = this.enemies.findIndex(e => e.id === id);
+        if (idx >= 0) this.removeEnemy(this.enemies[idx], scene, idx);
     }
 
     findNearestInCone(playerPos, playerDir, maxDist, coneDot) {
@@ -277,8 +346,8 @@ class EnemyManager {
     update(deltaTime, players, scene, isNight) {
         const now = Date.now();
 
-        // Only spawn enemies at night
-        if (isNight) {
+        // Only spawn enemies at night (y solo si está activado explícitamente)
+        if (isNight && this.spawnEnabled) {
             for (const player of players) {
                 if (now - this.lastSpawnTime > this.spawnCooldown &&
                     this.enemies.length < this.maxEnemies) {

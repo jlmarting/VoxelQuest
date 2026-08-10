@@ -310,7 +310,7 @@
         },
         "required": ["x", "z"]
       },
-      "servers": ["node"],
+      "servers": ["node", "python"],
       "category": "world"
     },
     "get_blocks_in_area": {
@@ -402,6 +402,47 @@
         "required": ["x", "z", "width", "depth", "type"]
       },
       "servers": ["node", "python"],
+      "category": "building"
+    },
+    "apply_blocks": {
+      "description": "Aplicar una lista de bloques (colocar y/o borrar) en un solo request. Cada item: {x,y,z,type} (type 0 = aire). Ideal para construcciones y destrucciones masivas.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "integer" },
+                "y": { "type": "integer" },
+                "z": { "type": "integer" },
+                "type": { "type": "integer", "minimum": 0, "maximum": 10 }
+              },
+              "required": ["x", "y", "z"]
+            }
+          }
+        },
+        "required": ["blocks"]
+      },
+      "servers": ["python"],
+      "category": "building"
+    },
+    "clear_area": {
+      "description": "Borra (convierte en aire) un área de bloques en un solo request",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "z": { "type": "integer" },
+          "width": { "type": "integer" },
+          "depth": { "type": "integer" },
+          "height": { "type": "integer" },
+          "baseY": { "type": "integer" }
+        },
+        "required": ["x", "z", "width", "depth"]
+      },
+      "servers": ["python"],
       "category": "building"
     },
     "flat_terrain": {
@@ -723,6 +764,293 @@
       },
       "servers": ["node"],
       "category": "training"
+    },
+    "create_object": {
+      "description": "Crear un objeto móvil (box, sphere, sculpture, projectile, vehicle) con física de colisiones y opcionalmente destruible. position=[x,y,z] en unidades de voxel (centro del objeto). scale admite fracciones (subvoxel).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["box", "sphere", "sculpture", "projectile", "vehicle"] },
+          "position": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "scale": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "rotation": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "color": { "type": "integer", "description": "Color RGB entero (p.ej. 16744448 = 0xff8800)" },
+          "mass": { "type": "number", "description": "kg; 0 = estático (no responde a fuerzas)" },
+          "restitution": { "type": "number", "description": "Coef. de rebote (0=plástico, 1=elástico)" },
+          "friction": { "type": "number" },
+          "health": { "type": "number" },
+          "destructible": { "type": "boolean" },
+          "fragile": { "type": "number", "description": "Umbral de energía cinética para romperse por colisión" },
+          "collision_group": { "type": "integer" },
+          "collision_mask": { "type": "integer", "description": "Bitmask de grupos con los que colisiona" },
+          "anchored": { "type": "boolean", "description": "Si true, no responde a física (estatua)" },
+          "owner_id": { "type": ["integer", "null"] },
+          "motion": { "type": "object", "description": "Movimiento programable (waypoints/dynamic/orbit/parametric/rotate)" },
+          "shape": { "type": "object" }
+        },
+        "required": ["kind", "position"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "update_object": {
+      "description": "Modificar propiedades de un objeto en caliente. Cualquier campo del modelo es parcheable excepto id. Parchear 'motion' reemplaza el movimiento.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "patch": { "type": "object" }
+        },
+        "required": ["object_id", "patch"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "list_objects": {
+      "description": "Listar objetos activos. filter opcional por kind/owner_id/etc.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filter": { "type": "object" }
+        }
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "get_object": {
+      "description": "Obtener estado completo de un objeto (incluye motion, shape, health, velocity).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" }
+        },
+        "required": ["object_id"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "destroy_object": {
+      "description": "Destruir un objeto manualmente e inmediatamente. cause se refleja en el evento object_destroyed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "cause": { "type": "string", "description": "Causa de la destrucción para logs/training" }
+        },
+        "required": ["object_id"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_object": {
+      "description": "Asignar un movimiento programable a un objeto. Reemplaza el motion anterior. type=stop detiene todo. Tipos: waypoints (interpola entre points a speed, loop), dynamic (velocity+gravity+expire_at), orbit (center+radius+axis+angular_speed), parametric (expresiones x/y/z evaluadas con t, namespace seguro sin builtins), rotate (angular_velocity continua). Los motions cinemáticos (waypoints/orbit/parametric/rotate) ignoran la física de colisión contra el grid; solo dynamic cae y colisiona.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "motion": {
+            "type": "object",
+            "description": "type + campos según tipo. Ver descripción de la tool.",
+            "properties": {
+              "type": { "type": "string", "enum": ["waypoints", "dynamic", "orbit", "parametric", "rotate", "stop"] },
+              "points": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 } },
+              "speed": { "type": "number" },
+              "loop": { "type": "boolean" },
+              "velocity": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+              "gravity": { "type": "boolean" },
+              "expire_at": { "type": ["number", "null"] },
+              "center": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+              "radius": { "type": "number" },
+              "axis": { "type": "string", "enum": ["x", "y", "z"] },
+              "angular_speed": { "type": "number" },
+              "x": { "type": "string", "description": "Expresión paramétrica para x(t)" },
+              "y": { "type": "string" },
+              "z": { "type": "string" },
+              "dt_mul": { "type": "number" },
+              "angular_velocity": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+            },
+            "required": ["type"]
+          }
+        },
+        "required": ["object_id", "motion"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_linear": {
+      "description": "Preset: línea recta con velocidad constante (sin gravedad). Wrapper de move_object con motion dynamic + gravity=false.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "velocity": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "loop": { "type": "boolean" },
+          "expire_at": { "type": ["number", "null"] }
+        },
+        "required": ["object_id", "velocity"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_orbit": {
+      "description": "Preset: órbita circular alrededor de un centro. axis = eje de rotación (x/y/z). angular_speed en rad/s.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "center": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "radius": { "type": "number" },
+          "axis": { "type": "string", "enum": ["x", "y", "z"] },
+          "angular_speed": { "type": "number" },
+          "loop": { "type": "boolean" }
+        },
+        "required": ["object_id", "center", "radius"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_bounce": {
+      "description": "Preset: rebote entre dos puntos a y b a velocidad constante. Implementado como waypoints con loop=true.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "a": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "b": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "speed": { "type": "number" },
+          "easing": { "type": "string", "enum": ["linear", "sine", "bounce"], "description": "Reservado para futuras versiones; fase 1 = linear" }
+        },
+        "required": ["object_id", "a", "b", "speed"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_projectile": {
+      "description": "Preset: parábola con gravedad para proyectiles. Promociona el objeto a kind=projectile, lo marca destruible con fragile mínimo, y guarda damage_on_impact / destroy_on_impact para aplicar en la colisión (Fase 5).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "velocity": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "gravity": { "type": "boolean" },
+          "expire_at": { "type": ["number", "null"], "description": "Tiempo de vida en segundos antes de expirar" },
+          "damage_on_impact": { "type": "number", "description": "Daño a aplicar a la entidad impactada" },
+          "destroy_on_impact": { "type": "boolean", "description": "Si true, el proyectil se destruye al impactar" }
+        },
+        "required": ["object_id", "velocity"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "move_rotate": {
+      "description": "Preset: rotación continua sin traslación. angular_velocity en rad/s.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "angular_velocity": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "loop": { "type": "boolean" }
+        },
+        "required": ["object_id", "angular_velocity"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "stop_motion": {
+      "description": "Detiene todo movimiento del objeto: anula motion, velocity y angular_velocity.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" }
+        },
+        "required": ["object_id"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "apply_impulse": {
+      "description": "Aplica un impulso instantáneo a un objeto dinámico (mass > 0). v += impulse / mass. Anula cualquier motion cinemático activo (waypoints/orbit/parametric/rotate) pasando a dynamic. point (relativo al centro) generaría torque; reservado para futuras versiones.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "impulse": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "point": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Punto de aplicación relativo al centro (genera torque); reservado" }
+        },
+        "required": ["object_id", "impulse"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "damage_object": {
+      "description": "Aplicar daño a un objeto destruible. Si health llega a 0, el objeto se destruye y emite object_destroyed con cause=damage.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "object_id": { "type": "integer" },
+          "amount": { "type": "number", "description": "Cantidad de daño a aplicar" },
+          "source_id": { "type": ["integer", "null"], "description": "ID de la entidad/objeto que causa el daño (para logs)" }
+        },
+        "required": ["object_id", "amount"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "create_sculpture": {
+      "description": "Crear una escultura subvoxel. Dos modos: (A) voxels explícitos = lista de {x,y,z,color,size} con coordenadas locales al position; (B) generator = sphere|cube|pyramid|helix|cross|humanoid_bust con params. resolution = subdivisiones por voxel (1,2,4,8); subvoxel size = 1/resolution. Máx 4096 voxels. Por defecto anchored=true (estática).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "position": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "resolution": { "type": "integer", "enum": [1, 2, 4, 8], "description": "Subdivisiones por voxel" },
+          "voxels": { "type": "array", "description": "Lista de subvoxels explícitos (modo A). Cada uno: {x,y,z,color,size} en coordenadas locales.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
+                "color": { "type": "integer" }, "size": { "type": "number" }
+              }
+            }
+          },
+          "generator": { "type": "string", "enum": ["sphere", "cube", "pyramid", "helix", "cross", "humanoid_bust"], "description": "Generador built-in (modo B)" },
+          "params": { "type": "object", "description": "Parámetros del generador: radius/height/base/side/arm/turns/color según el caso" },
+          "anchored": { "type": "boolean", "description": "Si true, estática (mass=0). Por defecto true." },
+          "destructible": { "type": "boolean" },
+          "mass": { "type": "number", "description": "Por defecto 0 si anchored, 1 si no" },
+          "color": { "type": "integer", "description": "Color por defecto para voxels sin color (modo generator)" },
+          "owner_id": { "type": ["integer", "null"] }
+        },
+        "required": ["position"]
+      },
+      "servers": ["python"],
+      "category": "objects"
+    },
+    "attack_enemy": {
+      "description": "Atacar a un enemigo por su id, aplicando daño. Devuelve si murió. Usado por el ejército para eliminar monstruos.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "enemy_id": { "type": "integer" },
+          "amount": { "type": "number", "description": "Daño a aplicar (default 2)" }
+        },
+        "required": ["enemy_id"]
+      },
+      "servers": ["python"],
+      "category": "combat"
+    },
+    "spawn_enemy": {
+      "description": "Crear un NPC/enemigo en una posición específica con tipo y configuración personalizada.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["ZOMBIE", "SKELETON", "CREEPER"] },
+          "position": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "name": { "type": "string" }
+        },
+        "required": ["type", "position"]
+      },
+      "servers": ["python"],
+      "category": "combat"
     }
   }
 }

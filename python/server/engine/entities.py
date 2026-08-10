@@ -157,6 +157,7 @@ ENEMY_TYPES = {
         "height": 1.5,
         "follow_distance": 16,
         "attack_distance": 3,
+        "attack_cooldown": 1.5,
         "explode_radius": 4,
     },
 }
@@ -179,6 +180,7 @@ class Enemy(Entity):
         self.state = "idle"
         self.target: Player | None = None
         self.last_attack_time: float = 0.0
+        self.name: str = enemy_type.capitalize()
 
     def to_dict(self) -> dict:
         base = super().to_dict()
@@ -186,6 +188,7 @@ class Enemy(Entity):
             {
                 "type": self.enemy_type,
                 "state": self.state,
+                "name": self.name,
             }
         )
         return base
@@ -235,10 +238,11 @@ class Enemy(Entity):
                 self.velocity.y = 8.0
 
     def _attack(self, player: Player, now: float) -> None:
-        if now - self.last_attack_time < self.config["attack_cooldown"]:
+        cooldown = self.config.get("attack_cooldown", 1.0)
+        if now - self.last_attack_time < cooldown:
             return
         self.last_attack_time = now
-        player.health -= self.config["damage"]
+        player.health -= self.config.get("damage", 0)
         if player.health <= 0:
             player.health = player.max_health
             player.position = Vec3(0.0, 40.0, 0.0)
@@ -254,6 +258,9 @@ class EnemyManager:
         self.spawn_radius = 20
         self.spawn_cooldown = 5.0
         self.last_spawn_time: float = 0.0
+        # Spawn automático desactivado por defecto: los monstruos solo aparecen
+        # si se activan explícitamente (comando /monsters o tool MCP).
+        self.spawn_enabled = False
 
     def find_enemy_by_id(self, enemy_id: int) -> Enemy | None:
         for enemy in self.enemies:
@@ -288,7 +295,7 @@ class EnemyManager:
 
     def update(self, dt: float, players: list[Player], now: float, is_night: bool) -> list[dict]:
         events: list[dict] = []
-        if is_night:
+        if is_night and self.spawn_enabled:
             for player in players:
                 if (
                     now - self.last_spawn_time > self.spawn_cooldown
@@ -326,6 +333,18 @@ class EnemyManager:
         enemy.id = EnemyManager.next_enemy_id
         EnemyManager.next_enemy_id += 1
         self.enemies.append(enemy)
+
+    def spawn_enemy(self, enemy_type: str, position: Vec3, name: str | None = None) -> Enemy:
+        """Spawn an enemy manually at a specific position."""
+        if enemy_type not in ENEMY_TYPES:
+            raise ValueError(f"Unknown enemy type: {enemy_type}. Valid types: {list(ENEMY_TYPES.keys())}")
+        enemy = Enemy(enemy_type, position, self.world)
+        enemy.id = EnemyManager.next_enemy_id
+        EnemyManager.next_enemy_id += 1
+        if name:
+            enemy.name = name
+        self.enemies.append(enemy)
+        return enemy
 
     def get_enemies_state(self) -> list[dict]:
         return [enemy.to_dict() for enemy in self.enemies]

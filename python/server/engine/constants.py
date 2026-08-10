@@ -17,6 +17,7 @@ class BlockType(IntEnum):
     BEDROCK = 10
     GLOWSTONE = 11
     REDSTONE = 12
+    RED_BRICK = 13  # Teja rojo-granate (tejados)
 
 
 # Compatibilidad: nombres en español para logs/debug
@@ -33,6 +34,8 @@ BLOCK_NAMES: dict[BlockType, str] = {
     BlockType.PLANKS: "Tablones",
     BlockType.BEDROCK: "Bedrock",
     BlockType.GLOWSTONE: "Glowstone",
+    BlockType.REDSTONE: "Redstone",
+    BlockType.RED_BRICK: "Ladrillo rojo",
 }
 
 
@@ -49,6 +52,7 @@ BLOCK_TEXTURES: dict[BlockType, tuple[int, int, int]] = {
     BlockType.PLANKS: (10, 10, 10),
     BlockType.BEDROCK: (11, 11, 11),
     BlockType.GLOWSTONE: (12, 12, 12),
+    BlockType.RED_BRICK: (14, 14, 14),
 }
 
 
@@ -70,3 +74,14 @@ DT = 1.0 / TICK_RATE
 
 # Render
 RENDER_DISTANCE = 4
+
+# Objetos móviles (propuesta 002)
+MAX_OBJECTS = 100
+MAX_SCULPTURE_VOXELS = 30000
+SUBVOXEL_MIN_SIZE = 0.125
+DEFAULT_RESTITUTION = 0.3
+DEFAULT_FRICTION = 0.5
+OBJECT_GRAVITY = -20.0  # misma magnitud que GRAVITY; separado para poder afinar
+DEFAULT_OBJECT_HEALTH = 100.0
+OBJECT_LINEAR_DAMPING = 0.02  # pérdida del 2% por tick (≈33%/s a 20Hz)
+OBJECT_ANGULAR_DAMPING = 0.0

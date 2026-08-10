@@ -477,3 +477,123 @@ El mundo se inicializa cuando el juego comienza. Asegúrate de haber seleccionad
 - Los comandos MCP son procesados de forma asíncrona
 - El servidor incluye CORS habilitado para desarrollo local
 - La estructura del proyecto está en `js/` para el cliente y raíz para el servidor
+
+---
+
+## Objetos y física (categoría `objects`)
+
+La categoría `objects` introduce un subsistema de **objetos móviles** gestionables
+vía MCP con física de colisiones, movimientos programables, destrucción reactiva
+y esculturas subvoxel. Disponible **solo en el stack Python** (`servers: ["python"]`).
+
+### Modelo
+
+Un `MobileObject` tiene: `id`, `kind` (`box`/`sphere`/`sculpture`/`projectile`/`vehicle`),
+`position` (centro, en unidades de voxel), `velocity`, `rotation`, `scale` (admite
+fracciones para subvoxel), `mass` (0 = estático), `restitution`, `health`,
+`destructible`, `fragile` (umbral de energía cinética para romperse por colisión),
+`collision_group`/`collision_mask` (bitmasks; dos objetos colisionan si cada uno
+tiene al grupo del otro en su mask), `anchored` (no responde a física), `owner_id`,
+`color` (RGB entero), `motion`, `shape`, `expire_at` (segundos de vida), y
+`damage_on_impact`/`destroy_on_impact` (para proyectiles).
+
+### Tools de creación y consulta
+
+| Tool | Descripción |
+|------|--------------|
+| `create_object` | Crear un MobileObject. Requeridos: `kind`, `position`. |
+| `create_sculpture` | Wrapper para esculturas subvoxel (generador o voxels explícitos). |
+| `list_objects` | Listar objetos activos. `filter` opcional (`kind`, `owner_id`, …). |
+| `get_object` | Estado completo de un objeto. |
+| `update_object` | Modificar propiedades en caliente (`patch`). |
+| `destroy_object` | Destrucción manual inmediata. Emite `object_destroyed`. |
+| `damage_object` | Aplicar daño a un objeto destruible. Si `health <= 0`, se destruye. |
+
+### Tools de movimiento
+
+`move_object` asigna un motion genérico. Hay presets de atajo:
+
+| Preset | Tipo de motion interno | Notas |
+|--------|------------------------|------|
+| `move_linear` | `dynamic` sin gravedad | Línea recta con `velocity`. |
+| `move_orbit` | `orbit` | `center` + `radius` + `axis` + `angular_speed`. |
+| `move_bounce` | `waypoints` con `loop` | Rebote entre `a` y `b` a `speed`. |
+| `move_projectile` | `dynamic` con gravedad | Promociona a `projectile`, marca `destructible`, guarda `damage_on_impact`/`destroy_on_impact`. |
+| `move_rotate` | `rotate` | Rotación continua con `angular_velocity`. |
+| `stop_motion` | — | Detiene todo (motion + velocity). |
+| `apply_impulse` | — | `v += impulse / mass`. Anula motion cinemático. |
+
+**Motions cinemáticos** (`waypoints`/`orbit`/`parametric`/`rotate`): la posición la
+fija el motion cada tick; la física de colisión contra el voxel grid **no** aplica
+(el objeto no cae). **`dynamic`**: la física integra velocidad + gravedad y resuelve
+colisiones contra el grid. Un objeto **sin motion** y con `mass > 0` cae por gravedad.
+
+### Movimientos paramétricos (seguridad)
+
+El motion `parametric` evalúa expresiones `x(t)`, `y(t)`, `z(t)` con un **namespace
+restringido**: `sin`, `cos`, `tan`, `sqrt`, `pi`, `abs`, `min`, `max`, `t` y **sin
+builtins**. Si una expresión falla (sintaxis o intento de acceso a builtins), el
+motion se anula silenciosamente para no spamear errores. Esto mitiga el riesgo de
+`eval()` pero **solo se debe usar en stack Python controlado**, no exponer a
+clientes no confiables.
+
+### Ejemplos
+
+```bash
+# Crear una caja que cae por gravedad y reposa en el suelo
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_object","arguments":{"kind":"box","position":[10,40,10],"mass":1,"color":16744448}}}'
+
+# Crear un proyectil que vuela y expira a los 3s
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_object","arguments":{"kind":"projectile","position":[0,30,0],"velocity":[5,10,0],"expire_at":3,"damage_on_impact":5}}'
+
+# Hacer orbitar una caja
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"move_orbit","arguments":{"object_id":1,"center":[10,35,10],"radius":5,"axis":"y","angular_speed":0.5}}}'
+
+# Crear una escultura esfera de subvoxels
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_sculpture","arguments":{"position":[20,40,20],"resolution":4,"generator":"sphere","params":{"radius":1.5,"color":16744576}}}}'
+
+# Dañar un objeto hasta destruirlo
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"damage_object","arguments":{"object_id":2,"amount":100}}}'
+```
+
+### Eventos al cliente
+
+El `state_update` incluye ahora `objects[]` (lista de objetos serializados) y
+eventos adicionales en `events[]`:
+
+| Evento | Campos | Cuándo |
+|--------|--------|--------|
+| `object_collided` | `id`, `other` (`{kind,id}`), `normal`, `depth`, `impact_speed` | Colisión obj↔obj. |
+| `object_destroyed` | `id`, `cause` (`collision`/`damage`/`expire`/`manual`), `fx` (`explosion_small`/`break`/`poof`), `position`, `kind` | Destrucción. |
+| `object_damaged` | `id`, `amount`, `source_id`, `health_remaining` | Daño aplicado. |
+| `entity_damaged` | `target`=`entity`, `id`, `amount`, `by_object` | Proyectil impacta entidad. |
+
+El cliente (`core/web/js/objects.js`) renderiza objetos con `THREE.Mesh`
+(box/sphere/vehicle/projectile) o `THREE.InstancedMesh` agrupado por color
+(sculpture), y lanza FX visuales (explosión/poof) al recibir `object_destroyed`.
+
+### Límites
+
+- `MAX_OBJECTS = 100` (configurable en `constants.py`).
+- `MAX_SCULPTURE_VOXELS = 4096` por escultura.
+- `SUBVOXEL_MIN_SIZE = 0.125` (resolution 8).
+- Colisión obj↔obj: broad-phase con grid espacial (celda 2 voxels) → O(n) esperado.
+- Substepping anti-tunneling: hasta 8 substeps por tick, desplazamiento por substep
+  ≤ mitad del tamaño del objeto.
+
+### Archivos relevantes
+
+| Archivo | Rol |
+|---------|-----|
+| `core/python/server/engine/objects.py` | `MobileObject`, `ObjectManager`, `Motion`, generadores de escultura. |
+| `core/python/server/engine/physics.py` | `update_object`, `resolve_object_collisions`, narrow-phase box/sphere, `resolve_collision` impulsivo. |
+| `core/python/server/engine/game_loop.py` | Integra `ObjectManager` en el tick y en `state_update`. |
+| `core/python/server/mcp/server.py` | Handlers `tool_create_object` … `tool_create_sculpture`. |
+| `core/shared/tools/definitions.json` | Contrato: 15 tools con `category: "objects"`. |
+| `core/web/js/objects.js` | `ObjectRenderer` (render + FX). |
+| `core/web/js/server-bridge.js` | Aplica `state.objects[]` y eventos al cliente. |

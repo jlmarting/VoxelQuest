@@ -109,11 +109,37 @@ class TestEnemy:
         enemy.update(0.05, [player], now=1.0)
         assert player.health < 20
 
+    def test_creeper_attacks_without_keyerror(self):
+        """Regresión: el CREEPER tenía config incompleta (sin attack_cooldown)
+        y al atacar lanzaba KeyError, congelando la simulación del servidor."""
+        world = World(seed=42, flat_mode=16)
+        enemy = Enemy("CREEPER", Vec3(0, 2, 0), world)
+        player = Player(id=1, position=Vec3(0.5, 2, 0), health=20)
+        # No debe lanzar KeyError: ataca (daño 0) y sigue vivo
+        enemy.update(0.05, [player], now=1.0)
+        assert player.health == 20  # creeper daño 0
+        # El tick del GameLoop no debe abortar con un enemigo creeper cerca
+        game = GameLoop(world)
+        game.add_player(1)
+        game.enemy_manager.enemies.append(enemy)
+        game.tick()  # no debe lanzar excepción
+        assert enemy.is_alive()
+
 
 class TestEnemyManager:
-    def test_spawn_at_night(self):
+    def test_no_spawn_by_default(self):
+        """Regresión: el spawn automático está desactivado por defecto, para
+        que no aparezcan monstruos al inicio del juego."""
         world = World(seed=42, flat_mode=16)
         manager = EnemyManager(world, max_enemies=1)
+        player = Player(id=1, position=Vec3(0, 2, 0))
+        manager.update(0.05, [player], now=10.0, is_night=True)
+        assert len(manager.enemies) == 0
+
+    def test_spawn_at_night_when_enabled(self):
+        world = World(seed=42, flat_mode=16)
+        manager = EnemyManager(world, max_enemies=1)
+        manager.spawn_enabled = True
         player = Player(id=1, position=Vec3(0, 2, 0))
         events = manager.update(0.05, [player], now=10.0, is_night=True)
         assert len(manager.enemies) > 0
@@ -122,6 +148,7 @@ class TestEnemyManager:
     def test_no_spawn_during_day(self):
         world = World(seed=42, flat_mode=16)
         manager = EnemyManager(world, max_enemies=1)
+        manager.spawn_enabled = True
         player = Player(id=1, position=Vec3(0, 2, 0))
         manager.update(0.05, [player], now=10.0, is_night=False)
         assert len(manager.enemies) == 0

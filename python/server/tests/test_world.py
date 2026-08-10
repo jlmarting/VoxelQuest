@@ -74,6 +74,45 @@ class TestWorld:
         assert result["position"]["y"] == 1
 
 
+class TestDeltas:
+    def test_deltas_include_air_on_break(self):
+        world = World(seed=42, flat_mode=16)
+        world.update_around(0, 0)
+        # Primer envío: chunk completo (cliente conoce el terreno)
+        first = world.get_deltas_since({})
+        assert first["0,0"]["full"] is True
+
+        # Destrucción posterior: debe llegar como aire al cliente
+        world.set_block(3, 1, 3, BlockType.AIR)
+        deltas = world.get_deltas_since({})
+        assert (3, 1, 3, 0) in deltas["0,0"]["modified"]
+        assert deltas["0,0"]["full"] is False
+
+    def test_deltas_incremental_after_full(self):
+        world = World(seed=42, flat_mode=16)
+        world.update_around(0, 0)
+        first = world.get_deltas_since({})
+        assert first["0,0"]["full"] is True
+
+        world.set_block(2, 1, 2, BlockType.STONE)
+        second = world.get_deltas_since({})
+        # Tras el envío completo, un cambio puntual es un delta parcial
+        assert second["0,0"]["full"] is False
+        assert (2, 1, 2, BlockType.STONE) in second["0,0"]["modified"]
+
+    def test_block_changes_take(self):
+        world = World(seed=42, flat_mode=16)
+        world.update_around(0, 0)
+        world.set_block(2, 2, 2, BlockType.WOOD)
+        world.set_block(3, 2, 2, BlockType.AIR)
+        updates = world.take_block_updates()
+        assert len(updates) == 2
+        assert updates[0] == {"x": 2, "y": 2, "z": 2, "type": int(BlockType.WOOD)}
+        assert updates[1] == {"x": 3, "y": 2, "z": 2, "type": int(BlockType.AIR)}
+        # Se vacía tras tomarlos
+        assert world.take_block_updates() == []
+
+
 class TestPerlinNoise:
     def test_deterministic(self):
         n1 = PerlinNoise(seed=123)

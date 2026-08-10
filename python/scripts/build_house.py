@@ -32,7 +32,7 @@ def mcp(method, params, timeout=15):
             if "error" in resp:
                 print(f"  RPC error: {resp['error']}")
                 return {"error": resp["error"]}
-            content = resp.get("result", {}).get("content", [])
+            content = resp.get("content", [])
             if content and isinstance(content[0], dict) and "text" in content[0]:
                 return json.loads(content[0]["text"])
             return resp.get("result", {})
@@ -42,20 +42,18 @@ def mcp(method, params, timeout=15):
 
 
 def send_batch(blocks):
-    ok = 0
-    for b in blocks:
-        res = mcp("place_block", b)
-        if res.get("success") or res.get("position") or "error" not in res:
-            ok += 1
-    return ok
+    res = mcp("apply_blocks", {"blocks": blocks}, timeout=120)
+    if isinstance(res, dict) and "error" in res:
+        return 0
+    return len(blocks)
 
 
 def break_batch(blocks):
-    ok = 0
-    for b in blocks:
-        res = mcp("break_block", b)
-        ok += 1
-    return ok
+    air = [{"x": b["x"], "y": b["y"], "z": b["z"], "type": AIR} for b in blocks]
+    res = mcp("apply_blocks", {"blocks": air}, timeout=120)
+    if isinstance(res, dict) and "error" in res:
+        return 0
+    return len(air)
 
 
 def build_house(cx=10, cz=8):

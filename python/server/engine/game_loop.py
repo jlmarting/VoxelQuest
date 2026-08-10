@@ -8,6 +8,7 @@ from typing import Callable
 
 from server.engine.constants import DT, TICK_RATE
 from server.engine.entities import EnemyManager, Player, Vec3
+from server.engine.objects import ObjectManager
 from server.engine.physics import PhysicsSystem
 from server.engine.world import World
 
@@ -25,6 +26,7 @@ class GameLoop:
 
         self.physics = PhysicsSystem(world)
         self.enemy_manager = EnemyManager(world)
+        self.object_manager = ObjectManager(world)
         self.players: dict[int, Player] = {}
         self.on_state_update: Callable[[dict], None] | None = None
 
@@ -105,9 +107,30 @@ class GameLoop:
 
         # Actualizar enemigos
         enemy_events = self.enemy_manager.update(self.dt, list(self.players.values()), now, self.is_night)
+        # El servidor es la fuente de verdad: integrar física (gravedad +
+        # colisiones) de los enemigos para que sus posiciones sean reales.
+        for enemy in self.enemy_manager.enemies:
+            self.physics.update_entity(enemy, self.dt)
 
         # Actualizar bloques cayendo
         falling_events = self.physics.update_falling_blocks(self.dt)
+
+        # Actualizar objetos móviles (motions + expiraciones; física en Fase 2)
+        object_events = self.object_manager.update_motions(self.dt, now)
+
+        # Física de objetos: integrar cada objeto y resolver colisiones obj↔obj
+        for obj in self.object_manager.objects:
+            self.physics.update_object(obj, self.dt)
+        obj_collision_events = self.physics.resolve_object_collisions(
+            self.object_manager.objects, self.dt
+        )
+        # Procesar daño/destrucción a partir de las colisiones
+        all_entities = list(self.players.values()) + self.enemy_manager.enemies
+        destruction_events = self.object_manager.check_destruction(
+            obj_collision_events, all_entities
+        )
+        object_events.extend(obj_collision_events)
+        object_events.extend(destruction_events)
 
         # Generar chunks alrededor de jugadores
         for player in self.players.values():
@@ -121,8 +144,9 @@ class GameLoop:
         # Enviar estado a suscriptores
         if self.on_state_update:
             state = self._build_state()
-            state["events"] = enemy_events + falling_events + self._pending_events
+            state["events"] = enemy_events + falling_events + object_events + self._pending_events
             self._pending_events = []
+            state["block_updates"] = self.world.take_block_updates(500)
             self.on_state_update(state)
 
     def _build_state(self) -> dict:
@@ -132,6 +156,7 @@ class GameLoop:
             "timestamp": time.time(),
             "players": {str(pid): p.to_dict() for pid, p in self.players.items()},
             "enemies": self.enemy_manager.get_enemies_state(),
+            "objects": self.object_manager.get_state(),
             "chunk_deltas": self.world.get_deltas_since({}),
             "day_time": self.day_time,
             "is_night": self.is_night,
@@ -143,7 +168,13 @@ class GameLoop:
         interval = self.dt
         while self.running:
             loop_start = time.time()
-            self.tick()
+            try:
+                self.tick()
+            except Exception as e:
+                # Una excepción en un tick NO debe congelar la simulación en
+                # silencio: se loguea y se continúa al siguiente tick.
+                import logging
+                logging.getLogger("game_loop").exception("Error en tick(): %s", e)
             elapsed = time.time() - loop_start
             sleep_time = max(0.0, interval - elapsed)
             await asyncio.sleep(sleep_time)

@@ -2,7 +2,7 @@
 const BLOCK_TYPES = {
     AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4,
     LEAVES: 5, SAND: 6, WATER: 7, COBBLESTONE: 8,
-    PLANKS: 9,     BEDROCK: 10, GLOWSTONE: 11, REDSTONE: 12
+    PLANKS: 9, BEDROCK: 10, GLOWSTONE: 11, REDSTONE: 12, RED_BRICK: 13
 };
 
 const BLOCK_NAMES = {
@@ -17,7 +17,8 @@ const BLOCK_NAMES = {
     [BLOCK_TYPES.PLANKS]: 'Tablones',
     [BLOCK_TYPES.BEDROCK]: 'Bedrock',
     [BLOCK_TYPES.GLOWSTONE]: 'Glowstone',
-    [BLOCK_TYPES.REDSTONE]: 'Redstone'
+    [BLOCK_TYPES.REDSTONE]: 'Redstone',
+    [BLOCK_TYPES.RED_BRICK]: 'Ladrillo rojo'
 };
 
 const BLOCK_COLORS = {
@@ -32,7 +33,8 @@ const BLOCK_COLORS = {
     [BLOCK_TYPES.PLANKS]: 0xbc9458,
     [BLOCK_TYPES.BEDROCK]: 0x2a2a2a,
     [BLOCK_TYPES.GLOWSTONE]: 0xffdd66,
-    [BLOCK_TYPES.REDSTONE]: 0xff3333
+    [BLOCK_TYPES.REDSTONE]: 0xff3333,
+    [BLOCK_TYPES.RED_BRICK]: 0x8b3a2a
 };
 
 // Texture indices in atlas: [top, side, bottom]
@@ -48,7 +50,8 @@ const BLOCK_TEXTURES = {
     [BLOCK_TYPES.PLANKS]: [10, 10, 10],
     [BLOCK_TYPES.BEDROCK]: [11, 11, 11],
     [BLOCK_TYPES.GLOWSTONE]: [12, 12, 12],
-    [BLOCK_TYPES.REDSTONE]: [13, 13, 13]
+    [BLOCK_TYPES.REDSTONE]: [13, 13, 13],
+    [BLOCK_TYPES.RED_BRICK]: [14, 14, 14]
 };
 
 const CHUNK_SIZE = 16;
@@ -81,6 +84,8 @@ class TextureAtlas {
         this.cobblestone(ctx, 9);
         this.planks(ctx, 10);
         this.bedrock(ctx, 11);
+
+        this.redBrick(ctx, 14);
 
         this.texture = new THREE.CanvasTexture(this.canvas);
         this.texture.magFilter = THREE.NearestFilter;
@@ -267,6 +272,29 @@ class TextureAtlas {
             }
     }
 
+    redBrick(ctx, col) {
+        // Teja rojo-granate: ladrillos con juntas de mortero
+        const x0 = this.fillTex(ctx, col, '#8b3a2a');
+        ctx.strokeStyle = '#5c2418';
+        ctx.lineWidth = 1;
+        // Filas de ladrillos desplazadas
+        for (let row = 0; row < TEX_SIZE; row += 4) {
+            const offset = (row / 4) % 2 ? 4 : 0;
+            for (let bx = -offset; bx < TEX_SIZE; bx += 8) {
+                ctx.strokeRect(x0 + bx, row, 8, 4);
+            }
+        }
+        // Ruido sutil
+        for (let x = 0; x < TEX_SIZE; x++)
+            for (let y = 0; y < TEX_SIZE; y++) {
+                const n = this.noise(x + 1300, y + 1300);
+                if (n > 0.6) {
+                    ctx.fillStyle = `rgb(${135 + n * 30}, ${58 + n * 25}, ${42 + n * 20})`;
+                    ctx.fillRect(x0 + x, y, 1, 1);
+                }
+            }
+    }
+
     getUV(index) {
         const u0 = index / ATLAS_COLS;
         const u1 = (index + 1) / ATLAS_COLS;
@@ -296,26 +324,14 @@ class Chunk {
     }
 
     generateFlatTerrain() {
-        const fm = this.world.flatMode;
-        const size = fm.size;
-        const wx0 = this.x * CHUNK_SIZE;
-        const wz0 = this.z * CHUNK_SIZE;
-
+        // LLANURA INFINITA para entrenamiento IA.
+        // Sin barreras de bedrock. Solo bedrock en y=0 e hierba en y=1.
         for (let x = 0; x < CHUNK_SIZE; x++) {
             for (let z = 0; z < CHUNK_SIZE; z++) {
-                const wx = wx0 + x;
-                const wz = wz0 + z;
-
                 for (let y = 0; y < WORLD_HEIGHT; y++) {
                     let blockType = BLOCK_TYPES.AIR;
-
-                    if (wx < 0 || wx >= size || wz < 0 || wz >= size) {
-                        if (y <= 3) blockType = BLOCK_TYPES.BEDROCK;
-                    } else {
-                        if (y === 0) blockType = BLOCK_TYPES.BEDROCK;
-                        else if (y === 1) blockType = BLOCK_TYPES.GRASS;
-                    }
-
+                    if (y === 0) blockType = BLOCK_TYPES.BEDROCK;
+                    else if (y === 1) blockType = BLOCK_TYPES.GRASS;
                     this.setBlock(x, y, z, blockType);
                 }
             }
@@ -501,6 +517,18 @@ class World {
     getChunkKey(x, z) { return `${x},${z}`; }
     getChunk(x, z) { return this.chunks.get(this.getChunkKey(x, z)); }
 
+    ensureChunk(cx, cz) {
+        const key = this.getChunkKey(cx, cz);
+        let chunk = this.chunks.get(key);
+        if (!chunk) {
+            chunk = new Chunk(cx, cz, this);
+            if (this.flatMode) chunk.generateFlatTerrain();
+            else chunk.generateTerrain(this.noise);
+            this.chunks.set(key, chunk);
+        }
+        return chunk;
+    }
+
     getBlock(wx, wy, wz) {
         const chunk = this.getChunk(Math.floor(wx / CHUNK_SIZE), Math.floor(wz / CHUNK_SIZE));
         if (!chunk) return BLOCK_TYPES.AIR;
@@ -534,7 +562,14 @@ class World {
                     this.chunks.set(key, c);
                 }
             }
-        for (const [, c] of this.chunks) if (c.dirty) c.buildMesh(this.scene, this.atlas);
+        // Rebuild limitado por frame: evita que una construcción masiva bloquee el render
+        let budget = 1;
+        for (const [, c] of this.chunks) {
+            if (!c.dirty) continue;
+            c.buildMesh(this.scene, this.atlas);
+            budget--;
+            if (budget <= 0) break;
+        }
     }
 
     getSpawnHeight(x, z) {
@@ -548,17 +583,36 @@ class World {
     applyServerDeltas(deltas) {
         for (const [key, data] of Object.entries(deltas)) {
             const [cx, cz] = key.split(',').map(Number);
-            if (!data.full) continue;
-            const chunkKey = this.getChunkKey(cx, cz);
-            let chunk = this.chunks.get(chunkKey);
-            if (!chunk) {
-                chunk = new Chunk(cx, cz, this);
-                this.chunks.set(chunkKey, chunk);
+            let chunk = this.chunks.get(this.getChunkKey(cx, cz));
+            if (!chunk && data.full) {
+                chunk = this.ensureChunk(cx, cz);
             }
-            for (const [lx, ly, lz, type] of data.modified) {
-                chunk.setBlock(lx, ly, lz, type);
+            if (!chunk) continue;
+            const modified = data.modified || [];
+            for (const item of modified) {
+                // Item [lx, ly, lz, type] — coordenadas locales del chunk
+                chunk.setBlock(item[0], item[1], item[2], item[3]);
+                if (item[0] === 0) this.dirtyChunk(cx - 1, cz);
+                if (item[0] === CHUNK_SIZE - 1) this.dirtyChunk(cx + 1, cz);
+                if (item[2] === 0) this.dirtyChunk(cx, cz - 1);
+                if (item[2] === CHUNK_SIZE - 1) this.dirtyChunk(cx, cz + 1);
             }
             chunk.dirty = true;
+        }
+    }
+
+    applyBlockUpdates(updates) {
+        for (const u of updates) {
+            const cx = Math.floor(u.x / CHUNK_SIZE), cz = Math.floor(u.z / CHUNK_SIZE);
+            const chunk = this.getChunk(cx, cz);
+            if (!chunk) continue;
+            const lx = ((u.x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            const lz = ((u.z % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+            chunk.setBlock(lx, u.y, lz, u.type);
+            if (lx === 0) this.dirtyChunk(cx - 1, cz);
+            if (lx === CHUNK_SIZE - 1) this.dirtyChunk(cx + 1, cz);
+            if (lz === 0) this.dirtyChunk(cx, cz - 1);
+            if (lz === CHUNK_SIZE - 1) this.dirtyChunk(cx, cz + 1);
         }
     }
 

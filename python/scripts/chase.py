@@ -30,7 +30,7 @@ def mcp(method, params):
             resp = json.loads(r.read().decode())
             if "error" in resp:
                 return {"error": resp["error"].get("message", str(resp["error"]))}
-            content = resp.get("result", {}).get("content", [])
+            content = resp.get("content", [])
             if content and isinstance(content[0], dict) and "text" in content[0]:
                 return json.loads(content[0]["text"])
             return {}

@@ -7,9 +7,20 @@ class ServerBridge {
         this.seq = 0;
         this._pendingBreak = false;
         this._pendingPlace = false;
+        this._lastInputSent = 0;
+        this._lastActivityNotice = 0;
+        this._wsUrl = null;
+        this._reconnectDelay = 1000;
+        this._reconnectTimer = null;
+        this._objectCount = 0;
     }
 
     connect(url) {
+        this._wsUrl = url;
+        return this._connectInternal(url);
+    }
+
+    _connectInternal(url) {
         return new Promise((resolve, reject) => {
             try {
                 console.log('[Bridge] Conectando a', url);
@@ -17,6 +28,7 @@ class ServerBridge {
 
                 this.ws.onopen = () => {
                     this.connected = true;
+                    this._reconnectDelay = 1000; // reset backoff
                     console.log('[Bridge] WebSocket conectado');
                 };
 
@@ -27,7 +39,8 @@ class ServerBridge {
 
                 this.ws.onclose = (e) => {
                     this.connected = false;
-                    console.log('[Bridge] Desconectado:', e.code, e.reason);
+                    console.log('[Bridge] Desconectado:', e.code, e.reason, '— reintentando en', this._reconnectDelay, 'ms');
+                    this._scheduleReconnect();
                 };
 
                 this.ws.onerror = (err) => {
@@ -48,6 +61,17 @@ class ServerBridge {
                 reject(err);
             }
         });
+    }
+
+    _scheduleReconnect() {
+        if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = setTimeout(() => {
+            console.log('[Bridge] Reintentando conexión...');
+            this._connectInternal(this._wsUrl).catch(() => {
+                this._reconnectDelay = Math.min(this._reconnectDelay * 1.5, 5000);
+                this._scheduleReconnect();
+            });
+        }, this._reconnectDelay);
     }
 
     _handleMessage(data) {
@@ -84,8 +108,24 @@ class ServerBridge {
             g.world.applyServerDeltas(state.chunk_deltas);
         }
 
+        if (state.block_updates && state.block_updates.length) {
+            g.world.applyBlockUpdates(state.block_updates);
+            this._notifyActivity('🛠️ El servidor está modificando el mundo...');
+        }
+
         if (state.enemies) {
             g.enemyManager.syncFromServer(state.enemies, g.scene);
+        }
+
+        if (state.objects) {
+            if (!g.objectRenderer) g.objectRenderer = new ObjectRenderer();
+            const mcpUrl = `http://${window.location.hostname || 'localhost'}:${window.location.port || 9000}/mcp`;
+            g.objectRenderer.syncFromServer(state.objects, g.scene, mcpUrl);
+            if (state.objects.length !== this._objectCount) {
+                this._objectCount = state.objects.length;
+                console.log('[Bridge] Objetos en escena:', this._objectCount,
+                    state.objects.map(o => `#${o.id}:${o.kind}`).join(', '));
+            }
         }
 
         if (typeof state.day_time === 'number') {
@@ -109,6 +149,27 @@ class ServerBridge {
                 if (ev.type === 'entity_died' && ev.target === 'enemy') {
                     g.enemyManager.removeById(ev.id, g.scene);
                 }
+                // Eventos de objetos (Fase 5: FX visuales)
+                if (ev.type === 'object_destroyed') {
+                    if (g.objectRenderer) g.objectRenderer.handleDestroyedEvent(ev, g.scene);
+                    console.log('[Objects] destruido id=' + ev.id + ' cause=' + ev.cause + ' fx=' + (ev.fx||'none'));
+                }
+                if (ev.type === 'object_collided') {
+                    if (g.objectRenderer) g.objectRenderer.handleCollidedEvent(ev, g.scene);
+                }
+                if (ev.type === 'object_damaged') {
+                    console.log('[Objects] dañado id=' + ev.id + ' amount=' + ev.amount);
+                }
+            }
+        }
+    }
+
+    _notifyActivity(message) {
+        const now = Date.now();
+        if (!this._lastActivityNotice || now - this._lastActivityNotice > 1500) {
+            this._lastActivityNotice = now;
+            if (this.game.ui && this.game.ui.showNotification) {
+                this.game.ui.showNotification(message);
             }
         }
     }
@@ -125,6 +186,13 @@ class ServerBridge {
         const g = this.game;
         const p = g.player1;
         if (!p) return;
+
+        // Throttle: no mandar más de ~10 msgs/s salvo acciones
+        const now = Date.now();
+        if (now - this._lastInputSent < 100) {
+            return;
+        }
+        this._lastInputSent = now;
 
         // Movement from keyboard
         const move = { x: 0, z: 0 };

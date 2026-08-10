@@ -256,6 +256,7 @@ class GameConsole {
 
     toggleMonsters() {
         this.config.monsters = !this.config.monsters;
+        this.game.enemyManager.spawnEnabled = this.config.monsters;
         this.game.enemyManager.spawnCooldown = this.config.monsters ? 5000 : 999999;
         
         if (!this.config.monsters) {
@@ -272,6 +273,7 @@ class GameConsole {
 
     enableMonsters() {
         this.config.monsters = true;
+        this.game.enemyManager.spawnEnabled = true;
         this.game.enemyManager.spawnCooldown = 5000;
         this.addMessage('Monstruos activados', '#0f0');
     }

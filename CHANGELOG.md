@@ -8,6 +8,25 @@ release boundary).
 
 ## [Unreleased]
 
+### Added
+- **Objetos móviles (propuesta 002 implementada)**: nuevo subsistema `MobileObject` en `core/python/server/engine/objects.py` con física de colisiones obj↔grid y obj↔obj (AABB/sphere, resolución impulsiva), movimientos programables (`waypoints`/`dynamic`/`orbit`/`parametric`/`rotate`), destrucción reactiva (colisión por umbral `fragile`, daño, expiración, manual), esculturas subvoxel con 6 generadores built-in (`sphere`/`cube`/`pyramid`/`helix`/`cross`/`humanoid_bust`) y renderizado en el cliente con `THREE.InstancedMesh`. 15 tools MCP nuevas en la categoría `objects` (`create_object`, `update_object`, `list_objects`, `get_object`, `destroy_object`, `move_object`, `move_linear`, `move_orbit`, `move_bounce`, `move_projectile`, `move_rotate`, `stop_motion`, `apply_impulse`, `damage_object`, `create_sculpture`), disponibles solo en el stack Python. Eventos nuevos en `state_update`: `object_collided`, `object_destroyed` (con FX `explosion_small`/`break`/`poof`), `object_damaged`, `entity_damaged`. Sección "Objetos y física" añadida a `docs/MANUAL_MCP.md`. Tests en `server/tests/test_objects.py`, `test_physics_objects.py`, `test_motions.py`, `test_motion_presets.py`, `test_destruction.py`, `test_sculptures.py`, `test_objects_e2e.py` (≈90 tests nuevos, suite total 161 pasan).
+- Cliente web: nuevo módulo `core/web/js/objects.js` (`ObjectRenderer`) que renderiza box/sphere/vehicle/projectile con `THREE.Mesh` y esculturas con `InstancedMesh` agrupado por color, más FX visuales (explosión/poof) al recibir `object_destroyed`. `server-bridge.js` aplica `state.objects[]` y eventos al cliente.
+- MCP: nuevas tools `apply_blocks` (aplicar lista de bloques en un request) y `clear_area` (borrado masivo) en el stack Python
+- Cliente: notificación visual cuando el servidor está modificando el mundo
+- Propuesta (no implementado): cliente CLI standalone `vq` con dos modos — subcomandos Typer generados dinámicamente desde `definitions.json` (reemplaza los 11 scripts dispersos) y modo `vq chat` de lenguaje natural con LLM configurable en runtime (Ollama Local, Ollama Cloud, o cualquier endpoint OpenAI-compatible). Documentada en `docs/proposals/003-cliente-cli-mcp/` (propuesta, contrato de subcomandos + tools virtuales, plan de ejecución, análisis de impacto)
+
+### Changed
+- Sincronía servidor→cliente: los cambios de bloques se difunden vía `block_updates` en cada `state_update` (antes la lista nunca se llenaba)
+- Deltas de chunks incrementales: un chunk se envía completo solo la primera vez; después solo los bloques modificados (incluye aire, así las destrucciones llegan al navegador)
+- Scripts de construcción (castle, fortress, gothic cathedral, house, maze, pyramid, village): usan `apply_blocks` por lotes en vez de una llamada HTTP por bloque
+- Scripts de cliente (chase, evade, evade_chase, follow_p1_distance): corregido el parseo de respuestas MCP (`content` a nivel raíz)
+- Cliente: rebuild de chunks limitado a 1 por frame para no bloquear el render en construcciones masivas
+- Cliente: throttle de envío de input al servidor (~10 msg/s)
+
+### Fixed
+- Construcciones "fantasma": los scripts parseaban `resp["result"]` pero el servidor devuelve `content` a nivel raíz, así que `detect_ground` usaba la altura de fallback y las estructuras quedaban flotando o bajo tierra
+- Destrucciones masivas sin efecto visual: `get_modified_blocks` filtraba el aire, por lo que los bloques borrados nunca llegaban al cliente
+
 ### Changed
 - refactor: reorganización de estructura y contrato MCP compartido
   - Renombrado `minecraft-clone/` → `core/`
