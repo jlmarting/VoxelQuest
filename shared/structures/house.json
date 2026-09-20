@@ -1,0 +1,47 @@
+{
+  "name": "house",
+  "description": "Casa habitable 7x7 con puerta, ventanas, interior hueco y techo con voladizo. Equivalente a build_house.py.",
+  "target": "grid",
+  "tree": {
+    "op": "union",
+    "children": [
+      {
+        "op": "subtract",
+        "children": [
+          {
+            "op": "box",
+            "size": [7, 3, 7],
+            "material": "cobblestone"
+          },
+          {
+            "op": "box",
+            "size": [5, 3, 5],
+            "material": "air"
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [0, -1, 0],
+        "children": [
+          {
+            "op": "box",
+            "size": [5, 1, 5],
+            "material": "planks"
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [0, 3, 0],
+        "children": [
+          {
+            "op": "box",
+            "size": [9, 1, 9],
+            "material": "wood"
+          }
+        ]
+      }
+    ]
+  }
+}

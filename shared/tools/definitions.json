@@ -351,6 +351,116 @@
       "servers": ["node"],
       "category": "building"
     },
+    "build_csg": {
+      "description": "Aplica un árbol CSG declarativo al mundo. El árbol se compone de primitivas (box, sphere, cylinder, pyramid), operaciones booleanas (union, subtract, intersect), transformaciones (at, rotate 90°) y repeticiones (array, radial). Materiales por nombre ('cobblestone') o id (0-13). target=grid aplica bloques voxel; target=sculpture crea una escultura subvoxel con color.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tree": {
+            "type": "object",
+            "description": "Árbol CSG declarativo (ver LEARN-csg.md)"
+          },
+          "position": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3,
+            "description": "Posición base (x,y,z) donde anclar la estructura"
+          },
+          "target": {
+            "type": "string",
+            "enum": ["grid", "sculpture"],
+            "description": "grid = bloques voxel (apply_blocks); sculpture = subvoxel con color"
+          },
+          "resolution": {
+            "type": "integer",
+            "enum": [1, 2, 4, 8],
+            "description": "Solo target=sculpture: subdivisiones por voxel"
+          },
+          "color": {
+            "type": "integer",
+            "description": "Solo target=sculpture: color por defecto para primitivas sin material"
+          },
+          "material": {
+            "type": "integer",
+            "description": "Material por defecto (id 0-13) para primitivas sin material (target=grid)"
+          }
+        },
+        "required": ["tree", "position"]
+      },
+      "servers": ["python"],
+      "category": "building"
+    },
+    "preview_csg": {
+      "description": "Dry-run de build_csg: valida el árbol y devuelve nº de bloques, AABB y materiales sin tocar el mundo.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tree": {
+            "type": "object",
+            "description": "Árbol CSG declarativo"
+          },
+          "target": {
+            "type": "string",
+            "enum": ["grid", "sculpture"]
+          },
+          "resolution": {
+            "type": "integer",
+            "enum": [1, 2, 4, 8]
+          },
+          "color": {
+            "type": "integer"
+          },
+          "material": {
+            "type": "integer"
+          }
+        },
+        "required": ["tree"]
+      },
+      "servers": ["python"],
+      "category": "building"
+    },
+    "list_csg_structures": {
+      "description": "Lista las estructuras CSG nombradas disponibles en core/shared/structures/*.json",
+      "inputSchema": { "type": "object", "properties": {} },
+      "servers": ["python"],
+      "category": "building"
+    },
+    "build_csg_named": {
+      "description": "Aplica una estructura CSG nombrada (guardada en core/shared/structures/) en una posición.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre de la estructura (sin .json)"
+          },
+          "position": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "target": {
+            "type": "string",
+            "enum": ["grid", "sculpture"]
+          },
+          "resolution": {
+            "type": "integer",
+            "enum": [1, 2, 4, 8]
+          },
+          "color": {
+            "type": "integer"
+          },
+          "material": {
+            "type": "integer"
+          }
+        },
+        "required": ["name", "position"]
+      },
+      "servers": ["python"],
+      "category": "building"
+    },
     "create_wall": {
       "description": "Crear una pared de bloques",
       "inputSchema": {

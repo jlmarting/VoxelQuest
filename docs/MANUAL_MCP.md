@@ -237,6 +237,10 @@ curl http://localhost:9000/health
 | `fill_area` | Llenar área con bloques | `x`, `z`, `width`, `depth`, `height`, `type`, `baseY` |
 | `flat_terrain` | Aplanar terreno | `x`, `z`, `width`, `depth`, `height`, `baseY` |
 | `plant_tree` | Plantar árbol | `x`, `z` |
+| `build_csg` | Aplicar árbol CSG declarativo (grid o sculpture) | `tree`, `position`, `target`, `resolution`, `color`, `material` |
+| `preview_csg` | Dry-run de build_csg (métricas sin tocar el mundo) | `tree`, `target`, `resolution`, `color`, `material` |
+| `list_csg_structures` | Listar estructuras CSG nombradas | ninguno |
+| `build_csg_named` | Aplicar estructura CSG nombrada | `name`, `position`, `target`, `resolution`, `color`, `material` |
 
 ### Mundo
 
@@ -420,6 +424,77 @@ curl -X POST http://localhost:9000/mcp \
 | 8 | Roca |
 | 9 | Tablones |
 | 10 | Bedrock |
+
+---
+
+## Estructuras Declarativas CSG
+
+El stack Python expone un **lenguaje declarativo CSG** (Constructive Solid Geometry) para construir estructuras como datos, sin generar scripts. Un árbol CSG se compone de primitivas, operaciones booleanas, transformaciones y repeticiones. Ver `docs/LEARN-csg.md` para el concepto.
+
+### Primitivas
+
+| `op` | Parámetros | Descripción |
+|---|---|---|
+| `box` | `size: [w,h,d]`, `material` | Caja centrada en el origen |
+| `sphere` | `radius`, `material` | Esfera |
+| `cylinder` | `radius`, `height`, `material` | Cilindro vertical |
+| `pyramid` | `base` (int o `[w,d]`), `height`, `material` | Pirámide |
+
+### Operaciones y transformaciones
+
+| `op` | Parámetros | Descripción |
+|---|---|---|
+| `union` | `children` (≥2) | Une; materiales posteriores sobrescriben |
+| `subtract` | `children` (≥2) | Elimina el segundo operando del primero |
+| `intersect` | `children` (≥2) | Conserva solo el solape (material del primero) |
+| `at` | `at: [dx,dy,dz]`, `children` | Traslada |
+| `rotate` | `axis` (x/y/z), `angle` (múltiplos de 90°), `children` | Rota |
+| `array` | `count`, `step: [dx,dy,dz]`, `children` | Repite linealmente |
+| `radial` | `count`, `radius`, `children` | Repite alrededor del eje Y |
+
+### Materiales
+
+- **target=grid**: nombre (`"cobblestone"`, `"planks"`, `"red_brick"`...) o id (0-13).
+- **target=sculpture**: color (int) + `resolution` (1/2/4/8), reutiliza el motor de esculturas subvoxel.
+
+### Ejemplo
+
+```json
+{
+  "op": "subtract",
+  "children": [
+    {"op": "box", "size": [7, 3, 7], "material": "cobblestone"},
+    {"op": "box", "size": [5, 3, 5], "material": "air"}
+  ]
+}
+```
+
+```bash
+# Dry-run (no toca el mundo)
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"preview_csg","arguments":{"tree":{"op":"box","size":[3,3,3],"material":"stone"}}}}'
+
+# Aplicar
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"build_csg","arguments":{"tree":{"op":"box","size":[3,3,3],"material":"stone"},"position":[10,20,10]}}}'
+
+# Estructuras nombradas
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_csg_structures","arguments":{}}}'
+curl -X POST http://localhost:9000/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"build_csg_named","arguments":{"name":"house","position":[10,20,10]}}}'
+```
+
+### Biblioteca de estructuras
+
+`core/shared/structures/*.json` contiene estructuras nombradas reutilizables:
+
+| Archivo | Descripción |
+|---|---|
+| `house.json` | Casa 7x7 con puerta, interior hueco y techo con voladizo |
+| `tower.json` | Torre de vigilancia con almenas |
+| `castle_walls.json` | Sección de muralla con merlones y torreones |
+| `cathedral_nave.json` | Nave central gótica con columnas y bóveda |
 
 ---
 

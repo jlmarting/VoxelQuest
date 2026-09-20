@@ -1,0 +1,61 @@
+{
+  "name": "tower",
+  "description": "Torre de vigilancia 5x5 con almenas en la cima. Equivalente a la estructura 'tower' del stack Node.",
+  "target": "grid",
+  "tree": {
+    "op": "union",
+    "children": [
+      {
+        "op": "subtract",
+        "children": [
+          {
+            "op": "box",
+            "size": [5, 8, 5],
+            "material": "stone"
+          },
+          {
+            "op": "box",
+            "size": [3, 8, 3],
+            "material": "air"
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [0, 8, 0],
+        "children": [
+          {
+            "op": "array",
+            "count": 4,
+            "step": [0, 0, 4],
+            "children": [
+              {
+                "op": "box",
+                "size": [1, 1, 1],
+                "material": "cobblestone"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [4, 8, 0],
+        "children": [
+          {
+            "op": "array",
+            "count": 4,
+            "step": [0, 0, 4],
+            "children": [
+              {
+                "op": "box",
+                "size": [1, 1, 1],
+                "material": "cobblestone"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

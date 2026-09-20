@@ -1,0 +1,55 @@
+{
+  "name": "castle_walls",
+  "description": "Sección de muralla medieval con almenas (merlones) y torreón de esquina. Fragmento de build_medieval_castle.py.",
+  "target": "grid",
+  "tree": {
+    "op": "union",
+    "children": [
+      {
+        "op": "box",
+        "size": [21, 4, 3],
+        "material": "cobblestone"
+      },
+      {
+        "op": "at",
+        "at": [0, 4, 0],
+        "children": [
+          {
+            "op": "array",
+            "count": 7,
+            "step": [3, 0, 0],
+            "children": [
+              {
+                "op": "box",
+                "size": [1, 2, 3],
+                "material": "cobblestone"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [-10, 0, 0],
+        "children": [
+          {
+            "op": "box",
+            "size": [5, 8, 5],
+            "material": "stone"
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [10, 0, 0],
+        "children": [
+          {
+            "op": "box",
+            "size": [5, 8, 5],
+            "material": "stone"
+          }
+        ]
+      }
+    ]
+  }
+}

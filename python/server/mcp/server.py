@@ -601,6 +601,152 @@ class McpServer:
             "object": obj.to_dict(),
         }
 
+    # ---- CSG declarativo (propuesta 004) ----
+
+    def _csg_structures_dir(self) -> Path:
+        return Path(__file__).resolve().parent.parent.parent.parent / "shared" / "structures"
+
+    def _load_csg_structure(self, name: str) -> dict:
+        safe = Path(name).name
+        path = self._csg_structures_dir() / f"{safe}.json"
+        if not path.is_file():
+            raise McpError(-32602, f"unknown csg structure: {name!r}")
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise McpError(-32603, f"invalid structure file {name}: {e}")
+
+    def _resolve_csg(self, args: dict) -> tuple[dict, dict]:
+        """Resuelve tree + opciones comunes (target, material, color, resolution)."""
+        tree = args.get("tree")
+        if not isinstance(tree, dict):
+            raise McpError(-32602, "tree required (object)")
+        from server.engine.csg import validate_tree
+
+        try:
+            validate_tree(tree)
+        except ValueError as e:
+            raise McpError(-32602, f"invalid csg tree: {e}")
+        opts = {
+            "target": args.get("target", "grid"),
+            "material": args.get("material"),
+            "color": args.get("color"),
+            "resolution": args.get("resolution", 4),
+        }
+        return tree, opts
+
+    async def tool_preview_csg(self, args: dict) -> dict:
+        """Dry-run: valida el árbol y devuelve métricas sin tocar el mundo."""
+        tree, opts = self._resolve_csg(args)
+        from server.engine.csg import aabb, evaluate_tree, MAX_BLOCKS
+
+        cells = evaluate_tree(tree, material=opts["material"])
+        if len(cells) > MAX_BLOCKS:
+            raise McpError(-32602, f"too many blocks: {len(cells)} > {MAX_BLOCKS}")
+        materials = sorted({m for m in cells.values()})
+        return {
+            "success": True,
+            "blocks": len(cells),
+            "aabb": aabb(cells),
+            "materials": materials,
+            "target": opts["target"],
+        }
+
+    async def tool_build_csg(self, args: dict) -> dict:
+        """Evalúa un árbol CSG y lo aplica al mundo (grid o sculpture)."""
+        tree, opts = self._resolve_csg(args)
+        position = args.get("position")
+        if not isinstance(position, (list, tuple)) or len(position) != 3:
+            raise McpError(-32602, "position required: [x,y,z]")
+        px, py, pz = (int(v) for v in position)
+
+        from server.engine.csg import aabb, evaluate_tree, MAX_BLOCKS
+
+        cells = evaluate_tree(tree, material=opts["material"])
+        if len(cells) > MAX_BLOCKS:
+            raise McpError(-32602, f"too many blocks: {len(cells)} > {MAX_BLOCKS}")
+
+        if opts["target"] == "sculpture":
+            return await self._build_csg_sculpture(cells, opts, (px, py, pz))
+
+        # target=grid: aplicar bloques voxel
+        count = 0
+        for (dx, dy, dz), mat in cells.items():
+            if mat == 0:
+                continue  # aire no se coloca
+            self.game_loop.world.set_block(px + dx, py + dy, pz + dz, mat)
+            count += 1
+        return {
+            "success": True,
+            "blocks_placed": count,
+            "aabb": aabb(cells),
+            "target": "grid",
+        }
+
+    async def _build_csg_sculpture(self, cells: dict, opts: dict, position: tuple) -> dict:
+        """Convierte el mapa CSG en subvoxels y crea una escultura."""
+        from server.engine.objects import validate_sculpture
+
+        resolution = int(opts.get("resolution", 4))
+        size = 1.0 / resolution
+        color = int(opts.get("color", 0xFF8800))
+        voxels = []
+        for (dx, dy, dz), mat in cells.items():
+            if mat == 0:
+                continue
+            voxels.append({
+                "x": dx + size * 0.5,
+                "y": dy + size * 0.5,
+                "z": dz + size * 0.5,
+                "color": color,
+                "size": size,
+            })
+        try:
+            validate_sculpture(voxels, resolution)
+        except ValueError as e:
+            raise McpError(-32602, str(e))
+
+        from server.engine.objects import ObjectManager
+
+        obj = self.game_loop.object_manager.create(
+            kind="sculpture",
+            position=position,
+            scale=(1.0, 1.0, 1.0),
+            shape={"type": "sculpture_voxels", "resolution": resolution, "voxels": voxels},
+            color=color,
+            mass=0.0,
+            anchored=True,
+            destructible=False,
+        )
+        return {
+            "success": True,
+            "object_id": obj.id,
+            "voxel_count": len(voxels),
+            "target": "sculpture",
+        }
+
+    async def tool_list_csg_structures(self, args: dict) -> dict:
+        """Lista las estructuras CSG nombradas disponibles."""
+        d = self._csg_structures_dir()
+        if not d.is_dir():
+            return {"structures": []}
+        names = sorted(p.stem for p in d.glob("*.json"))
+        return {"structures": names, "count": len(names)}
+
+    async def tool_build_csg_named(self, args: dict) -> dict:
+        """Aplica una estructura CSG nombrada en una posición."""
+        name = args.get("name")
+        if not isinstance(name, str) or not name:
+            raise McpError(-32602, "name required")
+        data = self._load_csg_structure(name)
+        tree = data.get("tree")
+        if not isinstance(tree, dict):
+            raise McpError(-32603, f"structure {name!r} has no 'tree'")
+        merged = dict(args)
+        merged["tree"] = tree
+        return await self.tool_build_csg(merged)
+
     def _result(self, req_id: Any, result: Any) -> dict:
         return {"jsonrpc": "2.0", "id": req_id, "content": [{"type": "text", "text": json.dumps(result)}]}
 

@@ -1,0 +1,72 @@
+{
+  "name": "cathedral_nave",
+  "description": "Nave central de catedral gótica: muros laterales, columnas con capiteles y bóveda ojival. Fragmento de build_gothic_cathedral.py.",
+  "target": "grid",
+  "tree": {
+    "op": "union",
+    "children": [
+      {
+        "op": "subtract",
+        "children": [
+          {
+            "op": "box",
+            "size": [15, 12, 21],
+            "material": "stone"
+          },
+          {
+            "op": "box",
+            "size": [13, 12, 19],
+            "material": "air"
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [-5, 0, 0],
+        "children": [
+          {
+            "op": "array",
+            "count": 5,
+            "step": [0, 0, 4],
+            "children": [
+              {
+                "op": "box",
+                "size": [1, 10, 1],
+                "material": "cobblestone"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [5, 0, 0],
+        "children": [
+          {
+            "op": "array",
+            "count": 5,
+            "step": [0, 0, 4],
+            "children": [
+              {
+                "op": "box",
+                "size": [1, 10, 1],
+                "material": "cobblestone"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "op": "at",
+        "at": [0, 12, 0],
+        "children": [
+          {
+            "op": "box",
+            "size": [15, 1, 21],
+            "material": "cobblestone"
+          }
+        ]
+      }
+    ]
+  }
+}
